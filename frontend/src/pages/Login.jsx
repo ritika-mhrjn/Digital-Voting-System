@@ -13,6 +13,7 @@ const Login = () => {
     idType: "citizenship",
     idNumber: "",
     voterid: "",
+    role: "voter", 
   });
 
   const handleChange = (e) => {
@@ -23,13 +24,11 @@ const Login = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Simulate login check (replace with real API later)
+    
     if (credentials.email && credentials.password) {
-      // Store login info (for demo purposes)
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("userEmail", credentials.email);
 
-      // Redirect to hero page
       navigate("/");
     } else {
       alert("Please fill in all required fields.");
@@ -37,7 +36,7 @@ const Login = () => {
   };
 
   const handleBack = () => {
-    navigate("/register"); 
+    navigate("/register");
   };
 
   return (
@@ -90,6 +89,22 @@ const Login = () => {
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
             required
           />
+        </div>
+
+        {/* Role Selection */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {t("role")} *
+          </label>
+          <select
+            name="role"
+            value={credentials.role}
+            onChange={handleChange}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
+          >
+            <option value="voter">{t("voter")}</option>
+            <option value="candidate">{t("candidate")}</option>
+          </select>
         </div>
 
         {/* ID Type */}
