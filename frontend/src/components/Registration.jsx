@@ -10,12 +10,13 @@ const Registration = () => {
   const { t, language } = useLanguage();
 
   const [formData, setFormData] = useState({
+    role: 'voter',
     fullName: '',
     dateOfBirth: '',
     phone: '',
     email: '',
     password: '',
-    idType: 'citizenship', // default selection
+    idType: 'citizenship',
     idNumber: '',
     voterid: '',
     province: '',
@@ -166,6 +167,26 @@ const Registration = () => {
                     required
                   />
                 </div>
+
+                {/* Role Selection */}
+                <div className="md:col-span-2">
+                  <label
+                    className="block text-sm font-medium text-gray-700 mb-3 text-left"
+                  >
+                    {t("role")} *
+                  </label>
+                  <select
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
+                  >
+                    <option value="voter">{t("voter")}</option>
+                    <option value="candidate">{t("candidate")}</option>
+                  </select>
+                </div>
+
 
                 {/* ID Type Selection */}
                 <div className="md:col-span-2">

@@ -2,10 +2,7 @@ import React, { createContext, useContext, useState } from "react";
 
 const translations = {
   en: {
-    // Language Selection
     secureVoting: "Secure Digital Voting",
-    subtitle: "A secure and accessible online voting platform",
-    selectLanguage: "Please select your preferred language",
     english: "English",
     nepali: "नेपाली",
     loginRegister: "Login / Register",
@@ -35,6 +32,9 @@ const translations = {
     passwordPlaceholder: "Enter your password",
     confirmPassword: "Confirm Password",
     confirmPasswordPlaceholder: "Re-enter your password",
+    role: "Role",
+    voter: "Voter",
+    candidate: "Candidate",
     register: "Register Now",
     alreadyRegistered: "Already registered?",
     login: "Login",
@@ -71,8 +71,6 @@ const translations = {
   np: {
     // Language Selection
     secureVoting: "सुरक्षित डिजिटल मतदान",
-    subtitle: "एक सुरक्षित र पहुँचयोग्य अनलाइन मतदान प्लेटफर्म",
-    selectLanguage: "कृपया आफ्नो मनपर्ने भाषा चयन गर्नुहोस्",
     english: "English",
     nepali: "नेपाली",
     loginRegister: "लगइन / दर्ता गर्नुहोस्",
@@ -102,6 +100,9 @@ const translations = {
     passwordPlaceholder: "आफ्नो पासवर्ड प्रविष्ट गर्नुहोस्",
     confirmPassword: "पासवर्ड पुष्टि गर्नुहोस्",
     confirmPasswordPlaceholder: "आफ्नो पासवर्ड पुन: प्रविष्ट गर्नुहोस्",
+    role: "भूमिका",
+    voter: "मतदाता",
+    candidate: "उम्मेदवार",
     register: "अहिले दर्ता गर्नुहोस्",
     alreadyRegistered: "पहिले नै दर्ता गरिसक्नु भएको छ?",
     login: "लगइन",
