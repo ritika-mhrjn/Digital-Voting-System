@@ -8,6 +8,8 @@ import morgan from 'morgan';
 
 import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
+import electionRoutes from './routes/election.js';
+
 
 dotenv.config();
 
@@ -45,6 +47,8 @@ app.get('/api/health', (req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/election', electionRoutes);
+
 
 // 404 handler
 app.use( (req, res, next) => {
