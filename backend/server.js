@@ -1,5 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import http from "http";               
+import { Server } from "socket.io";
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
@@ -8,6 +10,8 @@ import morgan from 'morgan';
 
 import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
+import candidateRoutes from './routes/candidate.js';
+
 
 dotenv.config();
 
@@ -45,6 +49,34 @@ app.get('/api/health', (req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/candidates', candidateRoutes);
+app.use('/api/results', require('./routes/results'));
+app.use('/api/prediction', require('./routes/prediction'));
+
+// Create server and attach socket.io
+// const server = http.createServer(app);
+// const io = new Server(server, {
+//   cors: {
+//     origin: "*", // or specific frontend URL
+//     methods: ["GET", "POST"]
+//   }
+// });
+
+// ⚡ Handle new socket connections
+// io.on("connection", (socket) => {
+//   console.log("A user connected:", socket.id);
+
+//   socket.on("disconnect", () => {
+//     console.log("User disconnected:", socket.id);
+//   });
+// });
+
+// // Make io accessible globally (for vote routes)
+// app.set("io", io);
+
+
+
+
 
 // 404 handler
 app.use( (req, res, next) => {

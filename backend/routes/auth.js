@@ -1,13 +1,15 @@
 import express from 'express';
-import User from '../models/User.js';
+import User from './models/User.js';
 import jwt from 'jsonwebtoken';
+import generateToken from '../utils/generateToken.js';
 
 const router = express.Router();
 
 // Generate JWT
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+const generateToken = (id, role) => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
+
 
 // @route   POST /api/auth/register
 // @desc    Register user
@@ -20,6 +22,10 @@ router.post('/register', async (req, res) => {
     if (userExists) {
       return res.status(400).json({ success: false, message: 'User already exists with this email, voter ID or ID number' });
     }
+
+    const token = generateToken(user._id, user.role);
+    res.json({ token });
+
 
     const user = await User.create(req.body);
 
