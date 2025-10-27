@@ -1,10 +1,9 @@
-// controllers/resultsController.js
-const Vote = require('../models/Vote');
-const Candidate = require('../models/candidate');
-const Election = require('../models/Election');
+import Vote from '../models/Vote.js';
+import Candidate from '../models/candidate.js';
+import Election from '../models/Election.js';
 
 // 🟢 Get real-time leaderboard
-exports.getLeaderboard = async (req, res) => {
+export const getLeaderboard = async (req, res) => {
   try {
     const { electionId } = req.params;
 
@@ -39,7 +38,7 @@ exports.getLeaderboard = async (req, res) => {
 };
 
 // 🏆 Get final results
-exports.getResults = async (req, res) => {
+export const getResults = async (req, res) => {
   try {
     const { electionId } = req.params;
     const election = await Election.findById(electionId);

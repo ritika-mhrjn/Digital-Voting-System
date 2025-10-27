@@ -1,7 +1,7 @@
 import { io } from "../server.js";
 import Vote from "../models/Vote.js";
 import Election from "../models/Election.js";
-import Candidate from "../models/Candidate.js";
+import Candidate from "../models/candidate.js";
 import mongoose from "mongoose";
 
 // Cast a vote
