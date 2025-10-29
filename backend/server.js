@@ -11,6 +11,7 @@ import morgan from 'morgan';
 import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
 import candidateRoutes from './routes/candidate.js';
+import voterRoutes from './routes/voterRoutes.js';
 
 dotenv.config();
 

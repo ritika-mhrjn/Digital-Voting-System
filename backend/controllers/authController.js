@@ -1,33 +1,65 @@
 import User from '../models/User.js';
+import Voter from '../models/voter.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
+//Register User
 export const registerUser = async (req, res) => {
   try {
-    const { email, voterid, password } = req.body;
+    const { email, voterid, password, fullName } = req.body;
 
+    //Check if voter exists in the Voter database
+    const voter = await Voter.findOne({ voterId: voterid });
+    if (!voter) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Voter ID — not found in electoral database',
+      });
+    }
+
+    //Check if this voter has already registered
+    if (voter.hasRegistered) {
+      return res.status(400).json({
+        success: false,
+        message: 'This Voter ID is already registered.',
+      });
+    }
+
+    //Check if user already exists (extra safeguard)
     const existingUser = await User.findOne({ $or: [{ email }, { voterid }] });
-    if (existingUser)
+    if (existingUser) {
       return res.status(400).json({ success: false, message: 'User already exists!' });
+    }
 
-    const user = new User(req.body);
+    //Create new user
+    const user = new User({ email, voterid, password, fullName });
     await user.save();
+
+    // Mark voter as registered
+    voter.hasRegistered = true;
+    await voter.save();
 
     res.status(201).json({
       success: true,
       message: 'Registration successful! Please login to continue.',
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message,
+    });
   }
 };
 
+//Login User
 export const loginUser = async (req, res) => {
   try {
     const { email, password, voterid } = req.body;
 
     const user = await User.findOne({ email, voterid });
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user)
+      return res.status(404).json({ success: false, message: 'User not found' });
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch)
@@ -51,6 +83,10 @@ export const loginUser = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message,
+    });
   }
 };
