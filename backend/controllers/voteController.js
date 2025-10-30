@@ -1,4 +1,3 @@
-// backend/controllers/voteController.js
 import mongoose from 'mongoose';
 import { io } from '../server.js';
 import Vote from '../models/Vote.js';

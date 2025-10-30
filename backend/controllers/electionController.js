@@ -1,6 +1,6 @@
 
 import Election from '../models/Election.js';
-import Candidate from '../models/Candidate.js'; // ✅ case-sensitive on Linux/Mac
+import Candidate from '../models/Candidate.js'; 
 import mongoose from 'mongoose';
 
 /** Determine status from dates */

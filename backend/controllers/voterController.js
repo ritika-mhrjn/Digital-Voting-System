@@ -63,3 +63,49 @@ export const verifyVoter = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
+
+export const importVotersCSV = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'CSV file is required' });
+
+    // Expect headers: voterId,fullName   (extras optional: dob,nationalId)
+    const rows = parse(req.file.buffer.toString('utf8'), {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    });
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'No rows found in CSV' });
+    }
+
+    const ops = rows
+      .filter(r => r.voterId && r.fullName)
+      .map(r => ({
+        updateOne: {
+          filter: { voterId: String(r.voterId).trim() },
+          update: {
+            $setOnInsert: {
+              voterId: String(r.voterId).trim(),
+              fullName: String(r.fullName).trim(),
+              dob: r.dob ? String(r.dob).trim() : undefined,
+              nationalId: r.nationalId ? String(r.nationalId).trim() : undefined,
+              hasRegistered: false,
+            }
+          },
+          upsert: true,
+        }
+      }));
+
+    if (ops.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid voter rows' });
+    }
+
+    const result = await Voter.bulkWrite(ops);
+    return res.status(201).json({ success: true, message: 'Voters imported', result });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+

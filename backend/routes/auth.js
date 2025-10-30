@@ -1,4 +1,3 @@
-
 import express from 'express';
 import User from '../models/User.js';
 import Voter from '../models/Voter.js';
@@ -9,6 +8,7 @@ const router = express.Router();
 /**
  * @route   POST /api/auth/register
  * @desc    Register user (pending until committee verifies)
+ * @body    { email, password, fullName, voterid|voterId, idNumber, dateOfBirth, phone, idType, province, district, ward }
  */
 router.post('/register', async (req, res) => {
   try {
@@ -16,28 +16,38 @@ router.post('/register', async (req, res) => {
       email,
       password,
       fullName,
-      voterid,      // client sends `voterid`
+      voterid,
+      voterId: voterIdAlt,
       idNumber,
-      role,         // ignore elevated roles from client
-      dateOfBirth,  // if you collect these on the form
+      dateOfBirth,
       phone,
       idType,
       province,
       district,
-      ward
+      ward,
+      // role from client is ignored to prevent privilege escalation
     } = req.body;
 
-    // Normalize & guard role (no self-assigning admin/committee)
+    // Basic required checks
+    if (!email || !password || !fullName || !(voterid || voterIdAlt)) {
+      return res.status(400).json({
+        success: false,
+        message: req.t ? req.t('common.missing_fields') : 'Missing required fields',
+      });
+    }
+
+    // Normalize & guard role
     const safeRole = 'voter';
 
-    // 1) Check registry (authoritative list)
-    const voterId = (voterid || '').trim();
-    const registry = await Voter.findOne({ voterId });
+    // Pull canonical voterId (support both keys)
+    const voterId = String(voterid || voterIdAlt || '').trim();
 
+    // 1) Check registry (authoritative list)
+    const registry = await Voter.findOne({ voterId });
     if (!registry) {
       return res.status(400).json({
         success: false,
-        message: 'VoterId not found in the official registry',
+        message: req.t ? req.t('voter.not_found') : 'VoterId not found in the official registry',
       });
     }
 
@@ -47,25 +57,29 @@ router.post('/register', async (req, res) => {
     if (!sameName) {
       return res.status(400).json({
         success: false,
-        message: 'Provided full name does not match the registry',
+        message: req.t ? req.t('voter.name_mismatch') : 'Provided full name does not match the registry',
       });
     }
 
     if (registry.hasRegistered) {
       return res.status(400).json({
         success: false,
-        message: 'This VoterId has already been registered',
+        message: req.t ? req.t('voter.already_registered') : 'This VoterId has already been registered',
       });
     }
 
     // 2) Prevent duplicate user accounts
     const userExists = await User.findOne({
-      $or: [{ email: (email || '').toLowerCase().trim() }, { voterId }, { idNumber }],
+      $or: [
+        { email: (email || '').toLowerCase().trim() },
+        { voterId },
+        { idNumber },
+      ],
     });
     if (userExists) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists with this email, voter ID, or ID number',
+        message: req.t ? req.t('auth.user_exists') : 'User already exists with this email, voter ID, or ID number',
       });
     }
 
@@ -74,7 +88,7 @@ router.post('/register', async (req, res) => {
       email,
       password,
       fullName,
-      voterId,          // canonical field (alias to voterid)
+      voterId,          // canonical field (alias to voterid in your model)
       idNumber,
       role: safeRole,
       dateOfBirth,
@@ -93,7 +107,7 @@ router.post('/register', async (req, res) => {
     // No token yet (pending verification)
     return res.status(201).json({
       success: true,
-      message: 'Registration received. Await Electoral Committee verification.',
+      message: req.t ? req.t('auth.register_received') : 'Registration received. Await Electoral Committee verification.',
       data: {
         id: user._id,
         fullName: user.fullName,
@@ -105,13 +119,17 @@ router.post('/register', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Server Error' });
+    return res.status(500).json({
+      success: false,
+      message: req.t ? req.t('common.server_error') : 'Server Error',
+    });
   }
 });
 
 /**
  * @route   POST /api/auth/login
  * @desc    Login user (only if verified)
+ * @body    { email, password }
  */
 router.post('/login', async (req, res) => {
   try {
@@ -120,19 +138,25 @@ router.post('/login', async (req, res) => {
     // password is select:false in model, so include it here
     const user = await User.findOne({ email: (email || '').toLowerCase().trim() }).select('+password');
     if (!user) {
-      return res.status(400).json({ success: false, message: 'Invalid email or password' });
+      return res.status(400).json({
+        success: false,
+        message: req.t ? req.t('auth.invalid_credentials') : 'Invalid email or password',
+      });
     }
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return res.status(400).json({ success: false, message: 'Invalid email or password' });
+      return res.status(400).json({
+        success: false,
+        message: req.t ? req.t('auth.invalid_credentials') : 'Invalid email or password',
+      });
     }
 
     // Block login until committee verifies
     if (!user.isVerified) {
       return res.status(403).json({
         success: false,
-        message: 'Your account is pending verification by the Electoral Committee',
+        message: req.t ? req.t('auth.pending_verification') : 'Your account is pending verification by the Electoral Committee',
       });
     }
 
@@ -140,7 +164,7 @@ router.post('/login', async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Login successful',
+      message: req.t ? req.t('auth.login_success') : 'Login successful',
       data: {
         id: user._id,
         fullName: user.fullName,
@@ -152,7 +176,10 @@ router.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Server Error' });
+    return res.status(500).json({
+      success: false,
+      message: req.t ? req.t('common.server_error') : 'Server Error',
+    });
   }
 });
 

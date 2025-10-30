@@ -9,6 +9,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import connectDB from './config/db.js';
 import events from 'events';
+
 events.defaultMaxListeners = 20; // or 0 for unlimited, but 20 is safer
 
 // Routes
@@ -19,6 +20,8 @@ import authRoutes from './routes/auth.js';
 import candidateRoutes from './routes/candidate.js';
 import VoterRoutes from './routes/voter.js';
 import VoteRoutes from './routes/vote.js';
+
+
 dotenv.config();
 
 // Initialize app and connect DB

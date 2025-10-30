@@ -5,6 +5,8 @@ import { protect, authorize, requireVerified, adminOnly, committeeOnly, committe
 import { verifyVoter, getAllVoters } from '../controllers/voterController.js';
 
 const router = express.Router();
+
+
 // Only committee/admin can see all voters
 router.get('/', protect, committeeOrAdmin, getAllVoters);
 
