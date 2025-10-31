@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
+import { loginUser } from "../api/endpoints"; // import login API
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,27 +17,30 @@ const Login = () => {
     role: "voter",
   });
 
+  const [error, setError] = useState("");
+
   const handleChange = (e) => {
     setCredentials({ ...credentials, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
-    if (credentials.email && credentials.password) {
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("userEmail", credentials.email);
-      localStorage.setItem("userRole", credentials.role);
+    try {
+      const data = await loginUser(credentials); // call backend API
+      // Save JWT and user info in localStorage
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("userEmail", data.email);
+      localStorage.setItem("userRole", data.role);
 
-      if (credentials.role === "admin") {
-        navigate("/admin-dashboard");
-      } else if (credentials.role === "candidate") {
-        navigate("/");
-      } else {
-        navigate("/");
-      }
-    } else {
-      alert("Please fill in all required fields.");
+      // Redirect based on role
+      if (data.role === "admin") navigate("/admin-dashboard");
+      else if (data.role === "candidate") navigate("/candidate-dashboard");
+      else if (data.role === "electrol committee") navigate("/electrol-committee-dashboard");
+      else navigate("/voter-dashboard");
+    } catch (err) {
+      setError(err.response?.data?.message || "Login failed. Please check your credentials.");
     }
   };
 
@@ -63,6 +67,8 @@ const Login = () => {
         className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md space-y-6"
       >
         <h2 className="text-2xl font-bold text-center">{t("login")}</h2>
+
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
         {/* Email */}
         <div>
@@ -96,7 +102,7 @@ const Login = () => {
           />
         </div>
 
-        {/* Role Selection */}
+        {/* Role */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {t("role")} <span className="text-red-500">*</span>
@@ -110,6 +116,7 @@ const Login = () => {
             <option value="voter">{t("voter")}</option>
             <option value="candidate">{t("candidate")}</option>
             <option value="admin">{t("admin")}</option>
+            <option value="electrol committee">{t("electrolCommittee")}</option>
           </select>
         </div>
 
@@ -137,8 +144,9 @@ const Login = () => {
             {credentials.idType === "passport"
               ? t("passport")
               : credentials.idType === "national"
-                ? t("national")
-                : t("citizenship")}{" "}<span className="text-red-500">*</span>
+              ? t("national")
+              : t("citizenship")}{" "}
+            <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -167,7 +175,6 @@ const Login = () => {
           />
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           className="w-full bg-blue-800 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
