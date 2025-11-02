@@ -20,7 +20,7 @@ const Registration = () => {
     confirmPassword: "",
     idType: "citizenship",
     idNumber: "",
-    voterid: "",
+    voterId: "",
     province: "",
     district: "",
     ward: ""
@@ -30,28 +30,25 @@ const Registration = () => {
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    if (name === "fullName") {
-      const lettersOnly = value.replace(/[^a-zA-Z\s]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: lettersOnly }));
-    } else if (name === "phone") {
-      const numbersOnly = value.replace(/\D/g, "");
-      setFormData((prev) => ({ ...prev, [name]: numbersOnly }));
-    } else if (name === "district") {
-      const lettersOnly = value.replace(/[^a-zA-Z]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: lettersOnly }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
+  const { name, value } = e.target;
+  if (name === "fullName" || name === "district") {
+    const lettersOnly = value.replace(/[^a-zA-Z\s]/g, "");
+    setFormData((prev) => ({ ...prev, [name]: lettersOnly }));
+  } else if (name === "phone" || name === "ward") {
+    const numbersOnly = value.replace(/\D/g, "");
+    setFormData((prev) => ({ ...prev, [name]: numbersOnly }));
+  } else {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }
+};
+
 
   const handleDateChange = (value) => {
-    setFormData((prev) => ({ ...prev, dateOfBirth: value }));
+    setFormData((prev) => ({ ...prev, dateOfBirth: value || "" }));
   };
 
   const validateForm = () => {
     const errors = {};
-
     if (!formData.fullName.trim()) errors.fullName = "Full name is required";
     if (!formData.dateOfBirth) errors.dateOfBirth = "Date of birth is required";
     if (!formData.phone) errors.phone = "Phone is required";
@@ -62,7 +59,7 @@ const Registration = () => {
     if (formData.password !== formData.confirmPassword)
       errors.confirmPassword = "Passwords do not match";
     if (!formData.idNumber) errors.idNumber = "ID is required";
-    if (!formData.voterid) errors.voterid = "Voter ID is required";
+    if (!formData.voterId) errors.voterId = "Voter ID is required";
     if (!formData.province) errors.province = "Province is required";
     if (!formData.district.trim()) errors.district = "District is required";
     if (!formData.ward.trim()) errors.ward = "Ward Number is required";
@@ -78,15 +75,29 @@ const Registration = () => {
     if (Object.keys(errors).length === 0) {
       setLoading(true);
       try {
-        // ✅ Call backend API
-        const response = await registerUser(formData);
+        const payload = {
+          role: formData.role,
+          fullName: formData.fullName,
+          dateOfBirth: formData.dateOfBirth,
+          phone: formData.phone,
+          email: formData.email,
+          password: formData.password,
+          idType: formData.idType,
+          idNumber: formData.idNumber,
+          voterId: formData.voterId,
+          province: formData.province,
+          district: formData.district,
+          ward: formData.ward
+        };
+
+        const response = await registerUser(payload);
         console.log("User registered successfully:", response);
 
         alert(t("registrationSuccess") || "Registration successful!");
         navigate("/login");
       } catch (error) {
-        console.error("Registration failed:", error);
-        alert("Registration failed. Please try again.");
+        console.error("Registration failed:", error.response?.data || error);
+        alert(error.response?.data?.message || "Registration failed. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -96,7 +107,6 @@ const Registration = () => {
   const handleBack = () => {
     navigate("/");
   };
-
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
@@ -125,7 +135,6 @@ const Registration = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 mt-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                 {/* Full Name */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -134,7 +143,7 @@ const Registration = () => {
                   <input
                     type="text"
                     name="fullName"
-                    value={formData.fullName}
+                    value={formData.fullName || ""}
                     onChange={handleInputChange}
                     placeholder={t('fullNamePlaceholder')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
@@ -149,7 +158,7 @@ const Registration = () => {
                   </label>
                   {language === 'np' ? (
                     <NepaliDatePicker
-                      value={formData.dateOfBirth}
+                      value={formData.dateOfBirth || ""}
                       onChange={handleDateChange}
                       className="np-datepicker"
                       placeholder={t('dateOfBirth')}
@@ -158,7 +167,7 @@ const Registration = () => {
                     <input
                       type="date"
                       name="dateOfBirth"
-                      value={formData.dateOfBirth}
+                      value={formData.dateOfBirth || ""}
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                     />
@@ -174,7 +183,7 @@ const Registration = () => {
                   <input
                     type="tel"
                     name="phone"
-                    value={formData.phone}
+                    value={formData.phone || ""}
                     onChange={handleInputChange}
                     placeholder={t('phonePlaceholder')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
@@ -190,7 +199,7 @@ const Registration = () => {
                   <input
                     type="email"
                     name="email"
-                    value={formData.email}
+                    value={formData.email || ""}
                     onChange={handleInputChange}
                     placeholder={t("emailPlaceholder")}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
@@ -206,7 +215,7 @@ const Registration = () => {
                   <input
                     type="password"
                     name="password"
-                    value={formData.password}
+                    value={formData.password || ""}
                     onChange={handleInputChange}
                     placeholder={t("passwordPlaceholder")}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
@@ -214,21 +223,22 @@ const Registration = () => {
                   {formErrors.password && <p className="text-red-500 text-sm mt-1">{formErrors.password}</p>}
                 </div>
 
-                {/*Comfirm Password */}
+                {/* Confirm Password */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t("confirmPassword")} <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="Password"
+                    type="password"
                     name="confirmPassword"
-                    value={formData.confirmPassword}
+                    value={formData.confirmPassword || ""}
                     onChange={handleInputChange}
                     placeholder={t("confirmPasswordPlaceholder")}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
                   />
                   {formErrors.confirmPassword && <p className="text-red-500 text-sm mt-1">{formErrors.confirmPassword}</p>}
                 </div>
+
 
                 {/* Role */}
                 <div className="md:col-span-2">
@@ -238,7 +248,7 @@ const Registration = () => {
                   <select
                     id="role"
                     name="role"
-                    value={formData.role}
+                    value={formData.role || ""}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
                   >
@@ -256,7 +266,7 @@ const Registration = () => {
                   </label>
                   <select
                     name="idType"
-                    value={formData.idType}
+                    value={formData.idType || ""}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
                   >
@@ -278,7 +288,7 @@ const Registration = () => {
                   <input
                     type="text"
                     name="idNumber"
-                    value={formData.idNumber}
+                    value={formData.idNumber || ""}
                     onChange={handleInputChange}
                     placeholder={t("idPlaceholder")}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
@@ -293,13 +303,13 @@ const Registration = () => {
                   </label>
                   <input
                     type="text"
-                    name="voterid"
-                    value={formData.voterid}
+                    name="voterId"
+                    value={formData.voterId || ""}
                     onChange={handleInputChange}
                     placeholder={t("voteridPlaceholder")}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
                   />
-                  {formErrors.voterid && <p className="text-red-500 text-sm mt-1">{formErrors.voterid}</p>}
+                  {formErrors.voterId && <p className="text-red-500 text-sm mt-1">{formErrors.voterId}</p>}
                 </div>
 
                 {/* Province */}
@@ -309,7 +319,7 @@ const Registration = () => {
                   </label>
                   <select
                     name="province"
-                    value={formData.province}
+                    value={formData.province || ""}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
                   >
@@ -331,7 +341,7 @@ const Registration = () => {
                   <input
                     type="text"
                     name="district"
-                    value={formData.district}
+                    value={formData.district || ""}
                     onChange={handleInputChange}
                     placeholder={t("districtPlaceholder")}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
@@ -347,7 +357,7 @@ const Registration = () => {
                   <input
                     type="number"
                     name="ward"
-                    value={formData.ward}
+                    value={formData.ward || ""}
                     onChange={handleInputChange}
                     placeholder={t("wardPlaceholder")}
                     min="1"
@@ -362,6 +372,7 @@ const Registration = () => {
             <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
               <button
                 type="submit"
+                disabled={loading}
                 className="w-full bg-blue-800 text-white py-4 px-6 rounded-xl font-semibold hover:scale-[1.02] hover:shadow-lg flex items-center justify-center space-x-2"
               >
                 <Shield className="w-5 h-5" />
@@ -388,8 +399,6 @@ const Registration = () => {
 };
 
 export default Registration;
-
-
 
 
 

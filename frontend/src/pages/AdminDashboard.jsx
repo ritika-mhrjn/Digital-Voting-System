@@ -216,7 +216,7 @@ const AdminDashboard = () => {
                       onClick={() => handleMoreInfo("voters")}
                       className="mt-4 self-start text-white border border-white/50 rounded-lg py-1.5 px-4 text-sm hover:bg-white/20"
                     >
-                      {t("moreinfo")}
+                      {t("moreInfo")}
                     </button>
                   </div>
 
@@ -233,7 +233,7 @@ const AdminDashboard = () => {
                       onClick={() => handleMoreInfo("voted")}
                       className="mt-4 self-start text-white border border-white/50 rounded-lg py-1.5 px-4 text-sm hover:bg-white/20"
                     >
-                      {t("moreinfo")}
+                      {t("moreInfo")}
                     </button>
                   </div>
                 </div>

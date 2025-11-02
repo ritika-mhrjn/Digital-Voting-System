@@ -1,29 +1,37 @@
 import React, { useState, createContext, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, LogOut, User, CheckCircle, ArrowLeft } from "lucide-react";
-import { getPosts, getCandidates, addVoter } from "../api/endpoints"; // ✅ API imports
+import { Camera, LogOut, User, CheckCircle } from "lucide-react";
+import { getPosts, getCandidates, addVoter, getVoterById } from "../api/endpoints"; // ✅ API imports
 
+// --- AUTH CONTEXT ---
 const AuthContext = createContext();
+export const useAuth = () => useContext(AuthContext);
 
-const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState({
-    id: "VOTER001",
-    role: "voter",
-    fullName: "Anuska Shrestha",
-    dateOfBirth: "2000-01-01",
-    phone: "9800000000",
-    email: "anuska@example.com",
-    idType: "citizenship",
-    idNumber: "123456",
-    voterid: "VOTER001",
-    province: "Province 1",
-    district: "Kathmandu",
-    ward: "5",
-    profilePic: null,
-  });
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const voterId = localStorage.getItem("voterId");
+
+  useEffect(() => {
+  if (!voterId) return;
+
+  const fetchUser = async () => {
+    try {
+      const res = await getVoterById(voterId); // call the new function
+      setUser(res.data); // use res.data because backend sends { success, data }
+    } catch (err) {
+      console.error("Failed to fetch voter data:", err);
+      setUser(null);
+    }
+  };
+
+  fetchUser();
+}, [voterId]);
+
 
   const updateBio = (newBio) => setUser((u) => ({ ...u, bio: newBio }));
   const updateProfilePic = (url) => setUser((u) => ({ ...u, profilePic: url }));
+
+  if (!user) return <div className="text-center mt-20">Loading profile...</div>;
 
   return (
     <AuthContext.Provider value={{ user, updateBio, updateProfilePic }}>
@@ -32,6 +40,7 @@ const AuthProvider = ({ children }) => {
   );
 };
 
+// --- NAVBAR ---
 const Navbar = ({ setPage }) => {
   const navigate = useNavigate();
   return (
@@ -63,7 +72,7 @@ const Navbar = ({ setPage }) => {
   );
 };
 
-// --- FeedPage ---
+// --- FEED PAGE ---
 const PostCard = ({ post, onReact, onComment, user }) => {
   const [showReactions, setShowReactions] = useState(false);
   const [comment, setComment] = useState("");
@@ -172,10 +181,9 @@ const PostCard = ({ post, onReact, onComment, user }) => {
 };
 
 const FeedPage = () => {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const [posts, setPosts] = useState([]);
 
-  // ✅ Fetch posts from API
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -193,14 +201,11 @@ const FeedPage = () => {
       prev.map((p) => {
         if (p.id === postId) {
           const existing = p.reactions.find((r) => r.userId === newReaction.userId);
-          let updatedReactions;
-          if (existing) {
-            updatedReactions = p.reactions.map((r) =>
-              r.userId === newReaction.userId ? { ...r, emoji: newReaction.emoji } : r
-            );
-          } else {
-            updatedReactions = [...p.reactions, newReaction];
-          }
+          const updatedReactions = existing
+            ? p.reactions.map((r) =>
+                r.userId === newReaction.userId ? { ...r, emoji: newReaction.emoji } : r
+              )
+            : [...p.reactions, newReaction];
           return { ...p, reactions: updatedReactions };
         }
         return p;
@@ -214,6 +219,8 @@ const FeedPage = () => {
     );
   };
 
+  if (!user) return <div className="text-center mt-20">Loading...</div>;
+
   return (
     <div className="max-w-2xl mx-auto mt-28 px-4">
       {posts.map((post) => (
@@ -223,15 +230,101 @@ const FeedPage = () => {
   );
 };
 
-// --- ProfilePage and VoteNowPage remain the same ---
+// --- PROFILE PAGE ---
+const ProfilePage = () => {
+  const { user, updateBio, updateProfilePic } = useAuth();
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [bioText, setBioText] = useState(user.bio || "");
 
+  const handleProfilePicChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    updateProfilePic(url);
+  };
+
+  const saveBio = () => {
+    updateBio(bioText);
+    setIsEditingBio(false);
+    // Optional: call backend API to save bio
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto mt-28 px-4 space-y-8">
+      <div className="bg-white rounded-xl shadow-lg border p-8 flex flex-col items-center text-center relative">
+        <div className="relative">
+          <div className="w-40 h-40 rounded-full border-4 border-gray-200 overflow-hidden flex items-center justify-center bg-gray-100">
+            {user.profilePic ? (
+              <img src={user.profilePic} alt="profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-gray-500 text-sm font-medium">Profile</span>
+            )}
+          </div>
+          <label className="absolute bottom-2 right-2 bg-gray-700 p-2 rounded-full cursor-pointer shadow-md hover:bg-gray-800 transition">
+            <Camera className="w-5 h-5 text-white" />
+            <input type="file" accept="image/*" onChange={handleProfilePicChange} className="hidden" />
+          </label>
+        </div>
+
+        <h2 className="mt-4 text-2xl font-semibold text-gray-800">{user.fullName}</h2>
+        <p className="text-gray-500">{user.email}</p>
+
+        <div className="mt-4 w-full">
+          {isEditingBio ? (
+            <>
+              <textarea
+                value={bioText}
+                onChange={(e) => setBioText(e.target.value)}
+                className="w-full border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                rows={3}
+                placeholder="Write something about yourself..."
+              />
+              <div className="flex justify-end gap-2 mt-3">
+                <button onClick={() => setIsEditingBio(false)} className="px-4 py-2 rounded border hover:bg-gray-100 transition">
+                  Cancel
+                </button>
+                <button onClick={saveBio} className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-800 transition">
+                  Save
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className={`text-gray-700 italic ${!user.bio ? "underline text-gray-400" : ""}`}>
+                {user.bio || "No bio added yet"}
+              </p>
+              <button onClick={() => setIsEditingBio(true)} className="mt-2 text-sm text-gray-600 hover:underline">
+                Edit Bio
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-lg border p-6">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Personal Information</h3>
+        <div className="flex flex-col gap-3 text-gray-700">
+          <p><strong>Date of Birth:</strong> {user.dateOfBirth}</p>
+          <p><strong>Phone:</strong> {user.phone}</p>
+          <p><strong>ID Type:</strong> {user.idType}</p>
+          <p><strong>ID Number:</strong> {user.idNumber}</p>
+          <p><strong>Voter ID:</strong> {user.voterId}</p>
+          <p><strong>Province:</strong> {user.province}</p>
+          <p><strong>District:</strong> {user.district}</p>
+          <p><strong>Ward:</strong> {user.ward}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- VOTENOW PAGE ---
 const VoteNowPage = () => {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [voted, setVoted] = useState(false);
   const [candidates, setCandidates] = useState([]);
 
-  // ✅ Fetch candidates from API
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
@@ -246,14 +339,15 @@ const VoteNowPage = () => {
 
   const handleVote = async (candidate) => {
     try {
-      // ✅ Call your API to register the vote
-      await addVoter({ userId: user.id, candidateId: candidate.id }); // Replace with actual vote endpoint
+      await addVoter({ userId: user.id, candidateId: candidate.id });
       setSelectedCandidate(candidate);
       setVoted(true);
     } catch (err) {
       console.error("Voting failed:", err);
     }
   };
+
+  if (!user) return <div className="text-center mt-20">Loading...</div>;
 
   return (
     <div className="max-w-4xl mx-auto mt-28 px-4">
@@ -270,12 +364,12 @@ const VoteNowPage = () => {
                 className="bg-white border rounded-xl shadow-md p-5 flex flex-col items-center text-center hover:shadow-lg transition"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <img src={candidate.photo} alt={candidate.name} className="w-28 h-28 rounded-full object-cover border-2" />
+                  <img src={candidate.photo || ""} alt={candidate.name} className="w-28 h-28 rounded-full object-cover border-2" />
                   <div className="flex flex-col items-center">
                     <div className="w-16 h-16 rounded-full overflow-hidden border-2">
-                      <img src={candidate.sign} alt={`${candidate.name} sign`} className="w-full h-full object-cover" />
+                      <img src={candidate.sign || ""} alt={`${candidate.name} sign`} className="w-full h-full object-cover" />
                     </div>
-                    <span className="text-gray-600 text-sm mt-1">{candidate.signName}</span>
+                    <span className="text-gray-600 text-sm mt-1">{candidate.signName || ""}</span>
                   </div>
                 </div>
                 <h3 className="font-semibold text-gray-800 text-lg mb-1">{candidate.name}</h3>

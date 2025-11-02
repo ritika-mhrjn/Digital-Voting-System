@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { loginUser } from "../api/endpoints"; // import login API
+import { loginUser } from "../api/endpoints";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,22 +17,57 @@ const Login = () => {
     role: "voter",
   });
 
+  const [errors, setErrors] = useState({});
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    setCredentials({ ...credentials, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    // Sanitize letters-only or numbers-only if needed in future
+    if (name === "fullName" || name === "district") {
+      const lettersOnly = value.replace(/[^a-zA-Z\s]/g, "");
+      setCredentials((prev) => ({ ...prev, [name]: lettersOnly }));
+    } else if (name === "phone" || name === "ward") {
+      const numbersOnly = value.replace(/\D/g, "");
+      setCredentials((prev) => ({ ...prev, [name]: numbersOnly }));
+    } else {
+      setCredentials((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const validateForm = () => {
+    const errs = {};
+
+    if (!credentials.email.trim()) errs.email = "Email is required";
+    else if (!credentials.email.includes("@")) errs.email = "Invalid email address";
+
+    if (!credentials.password) errs.password = "Password is required";
+    else if (credentials.password.length < 6) errs.password = "Password must be at least 6 characters";
+
+    if (!credentials.idNumber.trim()) errs.idNumber = "ID Number is required";
+    if (!credentials.voterid.trim()) errs.voterid = "Voter ID is required";
+
+    return errs;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
+    const validationErrors = validateForm();
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return; // stop if errors exist
+
     try {
-      const data = await loginUser(credentials); // call backend API
-      // Save JWT and user info in localStorage
+      const data = await loginUser(credentials);
+
+      // Save token and user info
       localStorage.setItem("token", data.token);
       localStorage.setItem("userEmail", data.email);
       localStorage.setItem("userRole", data.role);
+      localStorage.setItem("voterId", data.id);
+      localStorage.setItem("fullName", data.fullName);
+      localStorage.setItem("profilePic", data.profilePic || "");
 
       // Redirect based on role
       if (data.role === "admin") navigate("/admin-dashboard");
@@ -44,9 +79,7 @@ const Login = () => {
     }
   };
 
-  const handleBack = () => {
-    navigate("/register");
-  };
+  const handleBack = () => navigate("/register");
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
@@ -82,8 +115,8 @@ const Login = () => {
             onChange={handleChange}
             placeholder={t("emailPlaceholder")}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
-            required
           />
+          {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
         </div>
 
         {/* Password */}
@@ -98,8 +131,8 @@ const Login = () => {
             onChange={handleChange}
             placeholder={t("passwordPlaceholder")}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
-            required
           />
+          {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
         </div>
 
         {/* Role */}
@@ -155,8 +188,8 @@ const Login = () => {
             onChange={handleChange}
             placeholder={t("idPlaceholder")}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
-            required
           />
+          {errors.idNumber && <p className="text-red-500 text-sm mt-1">{errors.idNumber}</p>}
         </div>
 
         {/* Voter ID */}
@@ -171,8 +204,8 @@ const Login = () => {
             onChange={handleChange}
             placeholder={t("voteridPlaceholder")}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
-            required
           />
+          {errors.voterid && <p className="text-red-500 text-sm mt-1">{errors.voterid}</p>}
         </div>
 
         <button
