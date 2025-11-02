@@ -1,5 +1,5 @@
 import express from 'express';
-import Voter from '../models/Voter.js';
+import Voter from '../models/voter.js';
 import User from '../models/User.js';
 import { protect, authorize, requireVerified, adminOnly, committeeOnly, committeeOrAdmin } from '../middleware/authMiddleware.js';
 import { verifyVoter, getAllVoters } from '../controllers/voterController.js';
@@ -48,15 +48,16 @@ router.post('/bulk', protect, authorize('committee', 'admin'), async (req, res) 
 });
 
 // GET /api/voter/check/:voterId  — check registry status
-router.get('/check/:voterId', protect, authorize('committee', 'admin'), async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const { voterId } = req.params;
-    const v = await Voter.findOne({ voterId });
-    if (!v) return res.status(404).json({ success: false, message: 'Not found' });
-    return res.json({ success: true, data: v });
+    const voter = await Voter.findById(req.params.id);
+    if (!voter) {
+      return res.status(404).json({ success: false, message: 'Voter not found' });
+    }
+    res.json({ success: true, data: voter });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Server Error' });
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 

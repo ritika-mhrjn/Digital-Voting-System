@@ -49,7 +49,7 @@ const userSchema = new mongoose.Schema(
     // canonical: isVerified; alias keeps backward-compat with `verified`
     isVerified: {
       type: Boolean,
-      default: false,
+      default: true,
       alias: 'verified',
       index: true,
     },

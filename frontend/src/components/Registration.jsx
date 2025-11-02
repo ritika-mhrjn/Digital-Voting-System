@@ -20,7 +20,7 @@ const Registration = () => {
     confirmPassword: "",
     idType: "citizenship",
     idNumber: "",
-    voterid: "",
+    voterId: "",
     province: "",
     district: "",
     ward: ""
@@ -62,7 +62,7 @@ const Registration = () => {
     if (formData.password !== formData.confirmPassword)
       errors.confirmPassword = "Passwords do not match";
     if (!formData.idNumber) errors.idNumber = "ID is required";
-    if (!formData.voterid) errors.voterid = "Voter ID is required";
+    if (!formData.voterId) errors.voterId = "Voter ID is required";
     if (!formData.province) errors.province = "Province is required";
     if (!formData.district.trim()) errors.district = "District is required";
     if (!formData.ward.trim()) errors.ward = "Ward Number is required";
@@ -289,17 +289,17 @@ const Registration = () => {
                 {/* Voter ID */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t("voterid")} <span className="text-red-500">*</span>
+                    {t("voterId")} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    name="voterid"
-                    value={formData.voterid}
+                    name="voterId"
+                    value={formData.voterId}
                     onChange={handleInputChange}
-                    placeholder={t("voteridPlaceholder")}
+                    placeholder={t("voterIdPlaceholder")}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
                   />
-                  {formErrors.voterid && <p className="text-red-500 text-sm mt-1">{formErrors.voterid}</p>}
+                  {formErrors.voterId && <p className="text-red-500 text-sm mt-1">{formErrors.voterId}</p>}
                 </div>
 
                 {/* Province */}

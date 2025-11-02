@@ -1,15 +1,13 @@
 import User from '../models/User.js';
-import Voter from '../models/Voter.js';
+import Voter from '../models/voter.js';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 
-//Register User
+// Register User
 export const registerUser = async (req, res) => {
   try {
-    const { email, voterid, password, fullName } = req.body;
+    const { email, voterId, password, fullName } = req.body;
 
-    //Check if voter exists in the Voter database
-    const voter = await Voter.findOne({ voterId: voterid });
+    const voter = await Voter.findOne({ voterId });
     if (!voter) {
       return res.status(400).json({
         success: false,
@@ -17,7 +15,6 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    //Check if this voter has already registered
     if (voter.hasRegistered) {
       return res.status(400).json({
         success: false,
@@ -25,17 +22,19 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    //Check if user already exists (extra safeguard)
-    const existingUser = await User.findOne({ $or: [{ email }, { voterid }] });
+    const existingUser = await User.findOne({
+      $or: [{ email }, { voterId }],
+    });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'User already exists!' });
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists!',
+      });
     }
 
-    //Create new user
-    const user = new User({ email, voterid, password, fullName });
+    const user = new User({ email, voterId, password, fullName });
     await user.save();
 
-    // Mark voter as registered
     voter.hasRegistered = true;
     await voter.save();
 
@@ -52,18 +51,22 @@ export const registerUser = async (req, res) => {
   }
 };
 
-//Login User
+// Login User
 export const loginUser = async (req, res) => {
   try {
-    const { email, password, voterid } = req.body;
+    const { email, password, voterId } = req.body;
 
-    const user = await User.findOne({ email, voterid });
+    const user = await User.findOne({ email, voterId }).select('+password');
     if (!user)
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'User not found' });
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch)
-      return res.status(400).json({ success: false, message: 'Invalid credentials' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid credentials' });
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -79,6 +82,7 @@ export const loginUser = async (req, res) => {
         id: user._id,
         fullName: user.fullName,
         email: user.email,
+        voterId: user.voterId,
         role: user.role,
       },
     });
