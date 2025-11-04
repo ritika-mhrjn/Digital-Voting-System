@@ -1,11 +1,11 @@
-import express from 'express';
-import {
+const express = require('express');
+const {
   addCandidate,
   getAllCandidates,
   getCandidateById,
   updateCandidate,
   deleteCandidate,
-} from '../controllers/candidateController.js';
+} = require('../controllers/candidateController.js');
 
 const router = express.Router();
 
@@ -16,4 +16,4 @@ router.get('/:id', getCandidateById);       // GET /api/candidates/:id
 router.put('/:id', updateCandidate);        // PUT /api/candidates/:id
 router.delete('/:id', deleteCandidate);     // DELETE /api/candidates/:id
 
-export default router;
+module.exports= router;

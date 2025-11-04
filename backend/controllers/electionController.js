@@ -1,7 +1,9 @@
+// Third-party and Model imports (already in CommonJS form)
+const Election = require('../models/Election.js');
+const Candidate = require('../models/Candidate.js');
+const mongoose = require('mongoose');
 
-import Election from '../models/Election.js';
-import Candidate from '../models/Candidate.js'; 
-import mongoose from 'mongoose';
+// --- Utility Functions ---
 
 /** Determine status from dates */
 function computeStatus(startDate, endDate) {
@@ -19,15 +21,17 @@ function isValidId(id) {
   return mongoose.Types.ObjectId.isValid(id);
 }
 
+// --- Controller Functions ---
+
 /**
- * POST /api/election
+ * POST /api/election 
  * body: {
- *  title, description, startDate, endDate,
- *  candidates: [{ name, party }...],
- *  eligibleVoterIds?: [string]
+ * title, description, startDate, endDate,
+ * candidates: [{ name, party }...],
+ * eligibleVoterIds?: [string]
  * }
  */
-export const createElection = async (req, res) => {
+const createElection = async (req, res) => {
   try {
     const { title, description, startDate, endDate, candidates = [], eligibleVoterIds = [] } = req.body;
 
@@ -96,7 +100,7 @@ export const createElection = async (req, res) => {
  * GET /api/election
  * query: status? = scheduled|ongoing|completed
  */
-export const getElections = async (req, res) => {
+const getElections = async (req, res) => {
   try {
     const { status } = req.query;
     const filter = {};
@@ -131,7 +135,7 @@ export const getElections = async (req, res) => {
 /**
  * GET /api/election/:id
  */
-export const getElectionById = async (req, res) => {
+const getElectionById = async (req, res) => {
   try {
     const { id } = req.params;
     if (!isValidId(id)) {
@@ -157,7 +161,7 @@ export const getElectionById = async (req, res) => {
  * PATCH /api/election/:id/end
  * Ends an election immediately (admin/committee)
  */
-export const endElection = async (req, res) => {
+const endElection = async (req, res) => {
   try {
     const { id } = req.params;
     if (!isValidId(id)) {
@@ -168,7 +172,7 @@ export const endElection = async (req, res) => {
     if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
 
     // Update flags
-    election.isActive = false;                 // your existing flag
+    election.isActive = false; // your existing flag
     // If your schema has these fields, they will be saved; if not, ignored:
     election.status = 'completed';
     election.endDate = new Date();
@@ -180,4 +184,13 @@ export const endElection = async (req, res) => {
     console.error(error);
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
+};
+
+// --- CommonJS Export ---
+
+module.exports = {
+  createElection,
+  getElections,
+  getElectionById,
+  endElection,
 };

@@ -1,8 +1,7 @@
-
-import Candidate from '../models/Candidate.js';
+const Candidate = require('../models/Candidate.js');
 
 // Add new candidate
-export const addCandidate = async (req, res) => {
+const addCandidate = async (req, res) => {
   try {
     const { fullName, partyName, manifesto, age, gender, position, photo } = req.body;
 
@@ -30,7 +29,7 @@ export const addCandidate = async (req, res) => {
 };
 
 // Get all candidates
-export const getAllCandidates = async (req, res) => {
+const getAllCandidates = async (req, res) => {
   try {
     const candidates = await Candidate.find().sort({ createdAt: -1 });
     res.status(200).json(candidates);
@@ -40,7 +39,7 @@ export const getAllCandidates = async (req, res) => {
 };
 
 // Get candidate by ID
-export const getCandidateById = async (req, res) => {
+const getCandidateById = async (req, res) => {
   try {
     const candidate = await Candidate.findById(req.params.id);
     if (!candidate) {
@@ -53,7 +52,7 @@ export const getCandidateById = async (req, res) => {
 };
 
 // Update candidate
-export const updateCandidate = async (req, res) => {
+const updateCandidate = async (req, res) => {
   try {
     const updatedCandidate = await Candidate.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -69,9 +68,10 @@ export const updateCandidate = async (req, res) => {
 };
 
 // Delete candidate
-export const deleteCandidate = async (req, res) => {
+const deleteCandidate = async (req, res) => {
   try {
-    const deleted = await Candidate.findByIdAndDelete(req.params.id);
+    // FindByIdAndDelete returns the document before deletion, or null if not found
+    const deleted = await Candidate.findByIdAndDelete(req.params.id); 
     if (!deleted) {
       return res.status(404).json({ message: 'Candidate not found.' });
     }
@@ -79,4 +79,14 @@ export const deleteCandidate = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error deleting candidate.' });
   }
+};
+
+// --- CommonJS Export ---
+
+module.exports = {
+  addCandidate,
+  getAllCandidates,
+  getCandidateById,
+  updateCandidate,
+  deleteCandidate,
 };

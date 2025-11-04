@@ -1,8 +1,14 @@
-import express from 'express';
-import Voter from '../models/Voter.js';
-import User from '../models/User.js';
-import { protect, authorize, requireVerified, adminOnly, committeeOnly, committeeOrAdmin } from '../middleware/authMiddleware.js';
-import { verifyVoter, getAllVoters } from '../controllers/voterController.js';
+const express = require('express');
+const { 
+    protect, 
+    authorize, 
+    requireVerified, 
+    adminOnly, 
+    committeeOnly, 
+    committeeOrAdmin 
+} = require('../middleware/authMiddleware.js');
+const { verifyVoter, getAllVoters } = require('../controllers/voterController.js');
+// Note: The commented-out model imports were omitted as they are not active in the original code.
 
 const router = express.Router();
 
@@ -29,7 +35,7 @@ router.post('/bulk', protect, authorize('committee', 'admin'), async (req, res) 
             $setOnInsert: {
               voterId: v.voterId,
               fullName: v.fullName,
-              dob: v.dob,
+              dateOfBirth: v.dateOfBirth,
               nationalId: v.nationalId,
               hasRegistered: false,
             }
@@ -60,6 +66,20 @@ router.get('/check/:voterId', protect, authorize('committee', 'admin'), async (r
   }
 });
 
+// ✅ GET /api/voters/:id — fetch a single voter by database ID
+router.get('/:id', async (req, res) => {
+  try {
+    const voter = await Voter.findById(req.params.id);
+    if (!voter) {
+      return res.status(404).json({ success: false, message: 'Voter not found' });
+    }
+    res.json({ success: true, data: voter });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+});
+
 // PATCH /api/voter/verify/:voterId — mark user verified
 router.patch('/verify/:voterId', protect, authorize('committee', 'admin'), async (req, res) => {
   try {
@@ -85,4 +105,4 @@ router.patch('/verify/:voterId', protect, authorize('committee', 'admin'), async
   }
 });
 
-export default router;
+module.exports= router;

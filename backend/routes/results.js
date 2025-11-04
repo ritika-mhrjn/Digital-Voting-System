@@ -1,6 +1,6 @@
-import express from 'express';
-import { protect, committeeOrAdmin } from '../middleware/authMiddleware.js';
-import { getLeaderboard, getResults, publishResults } from '../controllers/resultsController.js';
+const express = require('express');
+const { protect, committeeOrAdmin } = require('../middleware/authMiddleware.js');
+const { getLeaderboard, getResults, publishResults } = require('../controllers/resultsController.js');
 
 const router = express.Router();
 
@@ -13,4 +13,4 @@ router.get('/final/:electionId', protect, getResults);
 // publish & lock results (committee/admin)
 router.post('/publish', protect, committeeOrAdmin, publishResults);
 
-export default router;
+module.exports= router;

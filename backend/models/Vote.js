@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
-import crypto from 'crypto';
+const mongoose=require('mongoose');
+const bcrypt=require('bcryptjs');
 
 const voteSchema = new mongoose.Schema({
   voter: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -17,4 +17,4 @@ voteSchema.pre('save', function (next) {
 });
 
 const Vote = mongoose.model('Vote', voteSchema);
-export default Vote;
+module.exports= Vote;

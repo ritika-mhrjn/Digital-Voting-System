@@ -1,5 +1,7 @@
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+const jwt = require('jsonwebtoken');
+const User = require('../models/User.js');
+
+// --- Utility Functions ---
 
 /**
  * Extract Bearer token from Authorization header (case-insensitive)
@@ -13,10 +15,12 @@ function getBearerToken(req) {
   return token.trim();
 }
 
+// --- Middleware Functions ---
+
 /**
  * Protect: verifies JWT, attaches req.user (without password) & req.auth (decoded)
  */
-export const protect = async (req, res, next) => {
+const protect = async (req, res, next) => {
   try {
     const token = getBearerToken(req);
     if (!token) {
@@ -25,6 +29,7 @@ export const protect = async (req, res, next) => {
 
     let decoded;
     try {
+      // NOTE: Ensure process.env.JWT_SECRET is loaded (e.g., via dotenv in server.js)
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       if (err.name === 'TokenExpiredError') {
@@ -33,16 +38,18 @@ export const protect = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Not authorized, invalid token' });
     }
 
+    // Find user by ID from the decoded token payload
     const user = await User.findById(decoded.id).select('-password');
     if (!user) {
       return res.status(401).json({ success: false, message: 'User not found' });
     }
 
-    req.user = user;     // sanitized user
-    req.auth = decoded;  // raw token payload if needed (id, role, iat, exp)
+    req.user = user;    // sanitized user object
+    req.auth = decoded; // raw token payload (id, role, iat, exp)
     next();
   } catch (error) {
     console.error('Auth error:', error.message);
+    // General fallback error response
     res.status(401).json({ success: false, message: 'Not authorized' });
   }
 };
@@ -51,7 +58,8 @@ export const protect = async (req, res, next) => {
  * Role-based authorization: allow only specified roles
  * Usage: authorize('admin', 'electoral_committee')
  */
-export const authorize = (...roles) => (req, res, next) => {
+const authorize = (...roles) => (req, res, next) => {
+  // This check assumes `protect` middleware has run successfully
   if (!req.user) {
     return res.status(401).json({ success: false, message: 'Not authorized' });
   }
@@ -64,7 +72,8 @@ export const authorize = (...roles) => (req, res, next) => {
 /**
  * Require verified users (e.g., for voting)
  */
-export const requireVerified = (req, res, next) => {
+const requireVerified = (req, res, next) => {
+  // This check assumes `protect` middleware has run successfully
   if (!req.user) {
     return res.status(401).json({ success: false, message: 'Not authorized' });
   }
@@ -77,7 +86,19 @@ export const requireVerified = (req, res, next) => {
   next();
 };
 
-/** Convenience guards */
-export const adminOnly = authorize('admin');
-export const committeeOnly = authorize('electoral_committee');
-export const committeeOrAdmin = authorize('electoral_committee', 'admin');
+// --- Convenience Guards (using authorize) ---
+const adminOnly = authorize('admin');
+const committeeOnly = authorize('electoral_committee');
+const committeeOrAdmin = authorize('electoral_committee', 'admin');
+
+// --- CommonJS Export ---
+
+// Export all middleware functions and convenience guards
+module.exports = {
+  protect,
+  authorize,
+  requireVerified,
+  adminOnly,
+  committeeOnly,
+  committeeOrAdmin,
+};

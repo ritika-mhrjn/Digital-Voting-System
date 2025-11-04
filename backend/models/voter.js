@@ -1,4 +1,5 @@
-import mongoose from "mongoose";
+// import mongoose from "mongoose";
+const mongoose=require('mongoose');
 
 const voterSchema = new mongoose.Schema(
   {
@@ -6,11 +7,11 @@ const voterSchema = new mongoose.Schema(
     fullName: { type: String, required: true },
     hasRegistered: { type: Boolean, default: false }, // flips once user registers
     // optional but useful for committee matching:
-    dob: { type: String },         // e.g., "2001-05-21"
+    dateOfBirth: { type: String },         // e.g., "2001-05-21"
     nationalId: { type: String },  // govt ID if you have it
   },
   { timestamps: true }
 );
 
-const Voter = mongoose.model("Voter", voterSchema);
-export default Voter;
+const Voter = mongoose.models.Voter || mongoose.model('Voter', voterSchema);
+module.exports= Voter;

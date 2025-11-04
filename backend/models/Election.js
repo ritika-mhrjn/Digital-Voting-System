@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
-import { protect, adminOnly } from '../middleware/authMiddleware.js';
-import { createElection, getElections } from '../controllers/electionController.js';
+const mongoose = require('mongoose');
+const { protect, adminOnly } = require('../middleware/authMiddleware.js');
+const { createElection, getElections } = require('../controllers/electionController.js');
 
 const candidateSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -21,4 +21,4 @@ const electionSchema = new mongoose.Schema(
 );
 
 const Election = mongoose.model("Election", electionSchema);
-export default Election;
+module.exports= Election;

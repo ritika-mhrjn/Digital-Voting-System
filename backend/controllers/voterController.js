@@ -1,12 +1,15 @@
-import User from '../models/User.js';
-import Voter from '../models/Voter.js';
+const User = require("../models/User.js");
+const Voter = require("../models/Voter.js");
+const { parse } = require('csv-parse'); // Assumed dependency for CSV parsing
+
+// --- Controller Functions ---
 
 /**
  * GET /api/voter
  * List voters in the official registry (committee/admin)
  * Optional query: q (search by voterId/fullName), registered (true/false)
  */
-export const getAllVoters = async (req, res) => {
+const getAllVoters = async (req, res) => {
   try {
     const { q, registered } = req.query;
     const filter = {};
@@ -32,7 +35,7 @@ export const getAllVoters = async (req, res) => {
  * PATCH /api/voter/verify/:voterId
  * Mark a registered user as verified (committee/admin)
  */
-export const verifyVoter = async (req, res) => {
+const verifyVoter = async (req, res) => {
   try {
     const { voterId } = req.params;
 
@@ -64,11 +67,17 @@ export const verifyVoter = async (req, res) => {
   }
 };
 
-export const importVotersCSV = async (req, res) => {
+/**
+ * POST /api/voter/import-csv
+ * Imports voter registry data from a CSV file.
+ * NOTE: This requires `req.file` (e.g., from `multer` middleware)
+ */
+const importVotersCSV = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'CSV file is required' });
 
-    // Expect headers: voterId,fullName   (extras optional: dob,nationalId)
+    // Expect headers: voterId,fullName (extras optional: dob,nationalId)
+    // NOTE: This assumes 'csv-parse' or a similar library is used and imported as `parse`.
     const rows = parse(req.file.buffer.toString('utf8'), {
       columns: true,
       skip_empty_lines: true,
@@ -85,7 +94,8 @@ export const importVotersCSV = async (req, res) => {
         updateOne: {
           filter: { voterId: String(r.voterId).trim() },
           update: {
-            $setOnInsert: {
+            // $setOnInsert ensures we only set these fields if a new document is created (upsert: true)
+            $setOnInsert: { 
               voterId: String(r.voterId).trim(),
               fullName: String(r.fullName).trim(),
               dob: r.dob ? String(r.dob).trim() : undefined,
@@ -109,3 +119,10 @@ export const importVotersCSV = async (req, res) => {
   }
 };
 
+// --- CommonJS Export ---
+
+module.exports = {
+  getAllVoters,
+  verifyVoter,
+  importVotersCSV,
+};

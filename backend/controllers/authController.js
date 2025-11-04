@@ -1,7 +1,7 @@
-import User from '../models/User.js';
-import Voter from '../models/Voter.js';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
+const User = require('../models/User.js');
+const Voter = require('../models/Voter.js');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 //Register User
 export const registerUser = async (req, res) => {
