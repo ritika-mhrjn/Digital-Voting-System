@@ -200,6 +200,6 @@ export const getVoters = async () => {
   }
 };
 export const getVoterById = async (id) => {
-  const res = await API.get(`/voter/${id}`);
+ const res = await api.get(`/voters/${id}`); 
   return res.data.data; // the voter object
 };

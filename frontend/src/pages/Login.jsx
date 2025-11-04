@@ -54,6 +54,7 @@ const Login = () => {
     e.preventDefault();
     setError("");
 
+    // Validate form
     const validationErrors = validateForm();
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) return; // stop if errors exist
@@ -61,7 +62,7 @@ const Login = () => {
     try {
       const data = await loginUser(credentials);
 
-      // Save token and user info
+      // Save token and user info in localStorage
       localStorage.setItem("token", data.token);
       localStorage.setItem("userEmail", data.email);
       localStorage.setItem("userRole", data.role);
@@ -69,15 +70,31 @@ const Login = () => {
       localStorage.setItem("fullName", data.fullName);
       localStorage.setItem("profilePic", data.profilePic || "");
 
-      // Redirect based on role
-      if (data.role === "admin") navigate("/admin-dashboard");
-      else if (data.role === "candidate") navigate("/candidate-dashboard");
-      else if (data.role === "electrol committee") navigate("/electrol-committee-dashboard");
-      else navigate("/voter-dashboard");
+      // Normalize role string
+      let role = (data.role || "").toLowerCase().trim();
+
+      // Convert underscores to spaces if needed for mapping
+      role = role.replace(/_/g, " "); // 'electoral_committee' -> 'electoral committee'
+
+      // Map roles to dashboard routes
+      const roleDashboardMap = {
+        admin: "/admin-dashboard",
+        candidate: "/candidate-dashboard",
+        "electoral committee": "/electoral-committee-dashboard",
+        voter: "/voter-dashboard",
+      };
+
+      // Redirect
+      navigate(roleDashboardMap[role] || "/voter-dashboard");
+
+
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed. Please check your credentials.");
+      setError(
+        err.response?.data?.message || "Login failed. Please check your credentials."
+      );
     }
   };
+
 
   const handleBack = () => navigate("/register");
 
@@ -149,7 +166,7 @@ const Login = () => {
             <option value="voter">{t("voter")}</option>
             <option value="candidate">{t("candidate")}</option>
             <option value="admin">{t("admin")}</option>
-            <option value="electrol committee">{t("electrolCommittee")}</option>
+            <option value="electoral_committee">{t("electoralCommittee")}</option>
           </select>
         </div>
 
@@ -177,8 +194,8 @@ const Login = () => {
             {credentials.idType === "passport"
               ? t("passport")
               : credentials.idType === "national"
-              ? t("national")
-              : t("citizenship")}{" "}
+                ? t("national")
+                : t("citizenship")}{" "}
             <span className="text-red-500">*</span>
           </label>
           <input

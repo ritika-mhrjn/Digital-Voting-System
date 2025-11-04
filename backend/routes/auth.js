@@ -57,21 +57,23 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ success: false, message: 'User already exists with this email, voter ID, or ID number' });
     }
 
-    const userData = {
-      role: 'voter',
-      fullName: fullName.trim(),
-      dateOfBirth,
-      phone: String(phone || '').trim(),
-      email: emailNorm,
-      password,
-      idType,
-      idNumber: idNumberNorm,
-      voterId: voterIdNorm,
-      province,
-      district,
-      ward,
-      isVerified: false,
-    };
+    const isDevAutoVerify = process.env.DEV_AUTO_VERIFY === "true";
+
+const userData = {
+  role: 'voter',
+  fullName: fullName.trim(),
+  dateOfBirth,
+  phone: String(phone || '').trim(),
+  email: emailNorm,
+  password,
+  idType,
+  idNumber: idNumberNorm,
+  voterId: voterIdNorm,
+  province,
+  district,
+  ward,
+  isVerified: isDevAutoVerify ? true : false,
+};
 
     const user = await User.create(userData);
 
