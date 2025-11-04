@@ -1,5 +1,5 @@
 // backend/blockchain/block.js
-import crypto from 'crypto';
+const crypto = require('crypto');
 
 class Block {
   constructor(index, timestamp, data, previousHash = '') {
@@ -19,4 +19,4 @@ class Block {
   }
 }
 
-export default Block;
+module.exports= Block;

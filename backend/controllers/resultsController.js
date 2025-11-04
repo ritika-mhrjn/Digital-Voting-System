@@ -1,11 +1,14 @@
-import mongoose from 'mongoose';
-import Vote from '../models/Vote.js';
-import Candidate from '../models/Candidate.js'; // case-sensitive
-import Election from '../models/Election.js';
-import { io } from '../server.js';
+const mongoose = require('mongoose');
+const Vote = require('../models/Vote.js');
+const Candidate = require('../models/Candidate.js'); // case-sensitive
+const Election = require('../models/Election.js');
+const { io } = require('../server.js');
+
+// --- Utility Functions ---
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+/** Determine if an election is completed based on various schema fields. */
 function isElectionCompleted(election) {
   if (!election) return false;
   if (typeof election.status === 'string') return election.status === 'completed';
@@ -16,6 +19,7 @@ function isElectionCompleted(election) {
   return false;
 }
 
+/** Builds the vote count leaderboard using MongoDB aggregation. */
 async function buildLeaderboard(electionId) {
   const eid = new mongoose.Types.ObjectId(electionId);
 
@@ -28,7 +32,7 @@ async function buildLeaderboard(electionId) {
         pipeline: [
           {
             $match: {
-              $expr: { $and: [ { $eq: ['$candidate', '$$cid'] }, { $eq: ['$election', eid] } ] }
+              $expr: { $and: [{ $eq: ['$candidate', '$$cid'] }, { $eq: ['$election', eid] }] }
             }
           },
           { $count: 'count' },
@@ -36,7 +40,7 @@ async function buildLeaderboard(electionId) {
         as: 'voteStats',
       },
     },
-    { $addFields: { totalVotes: { $ifNull: [ { $arrayElemAt: ['$voteStats.count', 0] }, 0 ] } } },
+    { $addFields: { totalVotes: { $ifNull: [{ $arrayElemAt: ['$voteStats.count', 0] }, 0] } } },
     { $project: { _id: 0, candidateId: '$_id', name: 1, party: 1, totalVotes: 1 } },
     { $sort: { totalVotes: -1 } },
   ]);
@@ -47,8 +51,10 @@ async function buildLeaderboard(electionId) {
   return { totalVotes, leaderboard };
 }
 
+// --- Controller Functions ---
+
 /** GET /api/results/leaderboard/:electionId */
-export const getLeaderboard = async (req, res) => {
+const getLeaderboard = async (req, res) => {
   try {
     const { electionId } = req.params;
     if (!isValidId(electionId)) return res.status(400).json({ success: false, message: 'Invalid electionId' });
@@ -68,7 +74,7 @@ export const getLeaderboard = async (req, res) => {
 };
 
 /** GET /api/results/final/:electionId */
-export const getResults = async (req, res) => {
+const getResults = async (req, res) => {
   try {
     const { electionId } = req.params;
     if (!isValidId(electionId)) return res.status(400).json({ success: false, message: 'Invalid electionId' });
@@ -96,8 +102,8 @@ export const getResults = async (req, res) => {
   }
 };
 
-/** POST /api/results/publish  body:{ electionId }  (committee/admin) */
-export const publishResults = async (req, res) => {
+/** POST /api/results/publish  body:{ electionId }  (committee/admin) */
+const publishResults = async (req, res) => {
   try {
     const { electionId } = req.body;
     if (!isValidId(electionId)) return res.status(400).json({ success: false, message: 'Invalid electionId' });
@@ -114,7 +120,7 @@ export const publishResults = async (req, res) => {
 
     const { totalVotes, leaderboard } = await buildLeaderboard(electionId);
 
-    // broadcast final board
+    // broadcast final board via Socket.IO
     const room = String(electionId);
     io.to(room).emit('leaderboard:update', { electionId, totalVotes, leaderboard, status: 'completed' });
     io.to(room).emit('results:published', { electionId, totalVotes, leaderboard });
@@ -130,4 +136,6 @@ export const publishResults = async (req, res) => {
   }
 };
 
-export default { getLeaderboard, getResults, publishResults };
+// --- CommonJS Export ---
+
+module.exports = { getLeaderboard, getResults, publishResults };

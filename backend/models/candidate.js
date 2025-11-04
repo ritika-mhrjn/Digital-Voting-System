@@ -1,5 +1,5 @@
 
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const candidateSchema = new mongoose.Schema(
   {
@@ -49,4 +49,4 @@ const candidateSchema = new mongoose.Schema(
 
 const Candidate = mongoose.model('Candidate', candidateSchema);
 
-export default Candidate;
+module.exports= Candidate;

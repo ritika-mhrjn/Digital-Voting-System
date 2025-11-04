@@ -1,11 +1,13 @@
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+// import mongoose from 'mongoose';
+// import bcrypt from 'bcryptjs';
+const mongoose=require('mongoose');
+const bcrypt=require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
     role: {
       type: String,
-      // keep your existing role name for committee
+      // keep existing role name for committee
       enum: ['voter', 'candidate', 'admin', 'electoral_committee'],
       default: 'voter',
       index: true,
@@ -36,7 +38,7 @@ const userSchema = new mongoose.Schema(
     voterId: {
       type: String,
       required: true,
-      unique: true,
+      unique: false,
       index: true,
       alias: 'voterid',
       trim: true,
@@ -93,5 +95,5 @@ userSchema.pre('save', async function (next) {
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
-const User = mongoose.model('User', userSchema);
-export default User;
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+module.exports= User;

@@ -1,5 +1,5 @@
 // backend/blockchain/blockchain.js
-import Block from './block.js';
+const Block = require('./block.js');
 
 class Blockchain {
   constructor() {
@@ -38,4 +38,4 @@ class Blockchain {
   }
 }
 
-export default Blockchain;
+module.exports= Blockchain;

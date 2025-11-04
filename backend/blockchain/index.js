@@ -1,5 +1,5 @@
 // backend/blockchain/index.js
-import Blockchain from './blockchain.js';
+const Blockchain = require('./blockchain.js');
 
 export const blockchain = new Blockchain();
 

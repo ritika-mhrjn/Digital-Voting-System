@@ -7,26 +7,26 @@ import { getPosts, getCandidates, addVoter, getVoterById } from "../api/endpoint
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const voterId = localStorage.getItem("voterId");
 
   useEffect(() => {
-  if (!voterId) return;
+    if (!voterId) return;
 
-  const fetchUser = async () => {
-    try {
-      const res = await getVoterById(voterId); // call the new function
-      setUser(res.data); // use res.data because backend sends { success, data }
-    } catch (err) {
-      console.error("Failed to fetch voter data:", err);
-      setUser(null);
-    }
-  };
+    const fetchUser = async () => {
+      try {
+        const data = await getVoterById(voterId);
+        setUser(data);
+      } catch (err) {
+        console.error("Failed to fetch voter data:", err);
+        setUser({});
+      }
+    };
 
-  fetchUser();
-}, [voterId]);
-
+    fetchUser();
+  }, [voterId]);
 
   const updateBio = (newBio) => setUser((u) => ({ ...u, bio: newBio }));
   const updateProfilePic = (url) => setUser((u) => ({ ...u, profilePic: url }));
@@ -382,8 +382,7 @@ const VoteNowPage = () => {
             ))}
           </div>
         </>
-      ) : (
-        <div className="text-center bg-white p-10 rounded-xl shadow-lg">
+      ) : (<div className="text-center bg-white p-10 rounded-xl shadow-lg">
           <CheckCircle size={48} className="text-green-600 mx-auto mb-3 animate-bounce" />
           <h2 className="text-2xl font-semibold text-gray-800 mb-2">Vote Submitted Successfully!</h2>
           <p className="text-gray-600">

@@ -1,4 +1,4 @@
-import User from '../models/User.js';
+const User = require('../models/User.js');
 
 /**
  * Validate if a voter is eligible to vote
@@ -28,4 +28,4 @@ const validateVoter = async (voterId) => {
   }
 };
 
-export default validateVoter;
+module.exports= validateVoter;

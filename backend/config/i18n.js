@@ -1,8 +1,7 @@
-import i18next from 'i18next';
-import i18nextMiddleware from 'i18next-http-middleware';
-import FsBackend from 'i18next-fs-backend';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const i18next = require('i18next');
+const i18nextMiddleware = require('i18next-http-middleware');
+const FsBackend = require('i18next-fs-backend');
+const path = require('path');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,5 +29,5 @@ await i18next
     interpolation: { escapeValue: false }
   });
 
-export const i18n = i18next;
-export const i18nMiddleware = i18nextMiddleware.handle(i18next);
+module.exports= i18n = i18next;
+module.exports= i18nMiddleware = i18nextMiddleware.handle(i18next);

@@ -1,11 +1,18 @@
-import mongoose from 'mongoose';
-import { io } from '../server.js';
-import Vote from '../models/Vote.js';
-import Election from '../models/Election.js';
-import Candidate from '../models/Candidate.js'; 
+const mongoose = require('mongoose');
+const { io } = require('../server.js');
+const Vote = require('../models/Vote.js');
+const Election = require('../models/Election.js');
+const Candidate = require('../models/Candidate.js');
 
-// Build a rich tally with zero-vote candidates too
+// --- Utility Functions ---
+
+/**
+ * Build a rich tally with zero-vote candidates included.
+ * @param {string} electionId - The ID of the election.
+ * @returns {Promise<Object>} The election tally, including totalVotes and leaderboard.
+ */
 async function computeTally(electionId) {
+  // Use Promise.all to fetch votes, candidates, and election details concurrently
   const [agg, candidates, election] = await Promise.all([
     Vote.aggregate([
       { $match: { election: new mongoose.Types.ObjectId(electionId) } },
@@ -16,8 +23,10 @@ async function computeTally(electionId) {
   ]);
 
   const totalVotes = agg.reduce((s, r) => s + r.votes, 0);
+  // Map aggregated votes to a lookup table keyed by candidate ID
   const byId = Object.fromEntries(agg.map(a => [String(a._id), a.votes]));
 
+  // Build the final leaderboard structure, adding zero votes where necessary
   const leaderboard = candidates
     .map(c => {
       const v = byId[String(c._id)] || 0;
@@ -39,12 +48,18 @@ async function computeTally(electionId) {
   };
 }
 
-// Cast a vote (only for verified users; enforce one vote per election)
-export const castVote = async (req, res) => {
+// --- Controller Functions ---
+
+/**
+ * POST /api/votes/cast
+ * Cast a vote (only for verified users; enforce one vote per election)
+ */
+const castVote = async (req, res) => {
   try {
     const { electionId, candidateId } = req.body;
     const userId = req.user._id;
-    const voterIdStr = req.user.voterId || req.user.voterid; // alias-safe
+    // Handle potential schema variations for voter ID field
+    const voterIdStr = req.user.voterId || req.user.voterid; 
 
     // Validate IDs
     if (
@@ -68,13 +83,14 @@ export const castVote = async (req, res) => {
     if (election.endsAt && now > new Date(election.endsAt)) {
       return res.status(400).json({ success: false, message: 'Voting period has ended' });
     }
+    // Check status field if available
     if (election.status && !['ongoing', 'open'].includes(election.status)) {
       return res.status(400).json({ success: false, message: 'Election is not open for voting' });
     }
 
-    // Optional eligibility filter (if present)
+    // Optional eligibility filter based on voterId array
     if (Array.isArray(election.eligibleVoterIds) && election.eligibleVoterIds.length > 0) {
-      if (!election.eligibleVoterIds.includes(voterIdStr)) {
+      if (!voterIdStr || !election.eligibleVoterIds.includes(voterIdStr)) {
         return res
           .status(403)
           .json({ success: false, message: 'You are not eligible to vote in this election' });
@@ -89,7 +105,7 @@ export const castVote = async (req, res) => {
         .json({ success: false, message: 'Invalid candidate for this election' });
     }
 
-    // Prevent duplicate vote
+    // Prevent duplicate vote (user can only vote once per election)
     const existingVote = await Vote.findOne({ voter: userId, election: electionId });
     if (existingVote) {
       return res.status(400).json({ success: false, message: 'You have already voted' });
@@ -101,14 +117,13 @@ export const castVote = async (req, res) => {
       candidate: candidateId,
       election: electionId,
       castAt: new Date(),
-      // blockchainTxHash: '...' // add when you wire blockchain
     });
 
-    // Recompute tally & broadcast
+    // Recompute tally & broadcast live updates via Socket.IO
     const tally = await computeTally(electionId);
     const room = String(electionId);
-    io.to(room).emit('leaderboard:update', tally);     // namespaced event
-    io.to(room).emit('leaderboardUpdate', tally);      // backward compatibility
+    io.to(room).emit('leaderboard:update', tally);      // namespaced event
+    io.to(room).emit('leaderboardUpdate', tally);       // backward compatibility
 
     return res
       .status(201)
@@ -119,8 +134,11 @@ export const castVote = async (req, res) => {
   }
 };
 
-// Public leaderboard for an election (logged-in users)
-export const getLeaderboard = async (req, res) => {
+/**
+ * GET /api/votes/leaderboard/:electionId
+ * Public leaderboard for an election (logged-in users)
+ */
+const getLeaderboard = async (req, res) => {
   try {
     const { electionId } = req.params;
 
@@ -134,4 +152,11 @@ export const getLeaderboard = async (req, res) => {
     console.error(err);
     return res.status(500).json({ success: false, message: 'Server Error' });
   }
+};
+
+// --- CommonJS Export ---
+
+module.exports = {
+  castVote,
+  getLeaderboard,
 };

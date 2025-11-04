@@ -141,6 +141,7 @@ export const getVotes = async () => {
     return response.data;
   } catch (error) {
     console.error("Failed to fetch votes:", error.response?.data || error.message);
+
     throw error;
   }
 };
@@ -189,12 +190,16 @@ export const deleteVoter = async (voterId) => {
     throw error;
   }
 };
-export const getVoterById = async (id) => {
+export const getVoters = async () => {
   try {
-    const response = await api.get(`/voters/${id}`); // backend: GET /api/voters/:id
-    return response.data; // { success: true, data: {...} }
+    const response = await api.get("/voters"); // adjust endpoint if needed
+    return response.data;
   } catch (error) {
-    console.error("Failed to fetch voter:", error.response?.data || error.message);
+    console.error("Failed to fetch voters:", error.response?.data || error.message);
     throw error;
   }
+};
+export const getVoterById = async (id) => {
+  const res = await API.get(`/voter/${id}`);
+  return res.data.data; // the voter object
 };

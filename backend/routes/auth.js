@@ -1,7 +1,7 @@
-import express from 'express';
-import User from '../models/User.js';
-import Voter from '../models/Voter.js';
-import generateToken from '../utils/generateToken.js';
+const express = require('express');
+const generateToken = require('../utils/generateToken.js');
+const User = require('../models/User.js');
+const Voter = require('../models/Voter.js');
 
 const router = express.Router();
 
@@ -16,8 +16,7 @@ router.post('/register', async (req, res) => {
       email,
       password,
       fullName,
-      voterid,
-      voterId: voterIdAlt,
+      voterId: voterIdFromBody,
       idNumber,
       dateOfBirth,
       phone,
@@ -25,104 +24,74 @@ router.post('/register', async (req, res) => {
       province,
       district,
       ward,
-      // role from client is ignored to prevent privilege escalation
     } = req.body;
 
-    // Basic required checks
-    if (!email || !password || !fullName || !(voterid || voterIdAlt)) {
-      return res.status(400).json({
-        success: false,
-        message: req.t ? req.t('common.missing_fields') : 'Missing required fields',
-      });
+    // Accept either `voterId` or `voterid` from frontend
+    const voterIdRaw = voterIdFromBody || req.body.voterid || '';
+    const emailNorm = String(email || '').toLowerCase().trim();
+    const voterIdNorm = String(voterIdRaw || '').trim();
+    const idNumberNorm = String(idNumber || '').trim();
+
+    if (!emailNorm || !password || !fullName || !voterIdNorm) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
-    // Normalize & guard role
-    const safeRole = 'voter';
-
-    // Pull canonical voterId (support both keys)
-    const voterId = String(voterid || voterIdAlt || '').trim();
-
-    // 1) Check registry (authoritative list)
-    const registry = await Voter.findOne({ voterId });
+    // Find registry entry (prefer voterId, fallback to nationalId)
+    const registry = await Voter.findOne({
+      $or: [{ voterId: voterIdNorm }, { nationalId: idNumberNorm }],
+    });
     if (!registry) {
-      return res.status(400).json({
-        success: false,
-        message: req.t ? req.t('voter.not_found') : 'VoterId not found in the official registry',
-      });
+      return res.status(400).json({ success: false, message: 'Voter not found in the official registry' });
     }
 
-    // Optional: simple name match (case-insensitive)
-    const sameName =
-      (registry.fullName || '').trim().toLowerCase() === (fullName || '').trim().toLowerCase();
-    if (!sameName) {
-      return res.status(400).json({
-        success: false,
-        message: req.t ? req.t('voter.name_mismatch') : 'Provided full name does not match the registry',
-      });
-    }
-
+    // FIX: if registry.hasRegistered is true -> already registered
     if (registry.hasRegistered) {
-      return res.status(400).json({
-        success: false,
-        message: req.t ? req.t('voter.already_registered') : 'This VoterId has already been registered',
-      });
+      return res.status(400).json({ success: false, message: 'This Voter ID is already registered.' });
     }
 
-    // 2) Prevent duplicate user accounts
+    // Prevent duplicate registration (case-insensitive email + id)
     const userExists = await User.findOne({
-      $or: [
-        { email: (email || '').toLowerCase().trim() },
-        { voterId },
-        { idNumber },
-      ],
+      $or: [{ email: emailNorm }, { voterId: voterIdNorm }, { idNumber: idNumberNorm }],
     });
     if (userExists) {
-      return res.status(400).json({
-        success: false,
-        message: req.t ? req.t('auth.user_exists') : 'User already exists with this email, voter ID, or ID number',
-      });
+      return res.status(400).json({ success: false, message: 'User already exists with this email, voter ID, or ID number' });
     }
 
-    // 3) Create user in PENDING state (not verified)
-    const user = await User.create({
-      email,
-      password,
-      fullName,
-      voterId,          // canonical field (alias to voterid in your model)
-      idNumber,
-      role: safeRole,
+    const userData = {
+      role: 'voter',
+      fullName: fullName.trim(),
       dateOfBirth,
-      phone,
+      phone: String(phone || '').trim(),
+      email: emailNorm,
+      password,
       idType,
+      idNumber: idNumberNorm,
+      voterId: voterIdNorm,
       province,
       district,
       ward,
-      isVerified: false // alias to `verified` in your schema
-    });
+      isVerified: false,
+    };
 
-    // 4) Mark registry as registered (but not verified yet)
+    const user = await User.create(userData);
+
+    // mark registry as registered and save the document
     registry.hasRegistered = true;
     await registry.save();
 
-    // No token yet (pending verification)
     return res.status(201).json({
       success: true,
-      message: req.t ? req.t('auth.register_received') : 'Registration received. Await Electoral Committee verification.',
-      data: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        voterId: user.voterId,
-        isVerified: user.isVerified, // false
-        role: user.role,             // 'voter'
-      },
+      message: 'Registration received. Await Electoral Committee verification.',
+      data: { id: user._id, fullName: user.fullName, email: user.email, voterId: user.voterId },
     });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({
-      success: false,
-      message: req.t ? req.t('common.server_error') : 'Server Error',
-    });
+    // Handle duplicate key error explicitly
+    if (err && err.code === 11000) {
+      const dupField = Object.keys(err.keyValue || {})[0] || 'field';
+      return res.status(409).json({ success: false, message: `Duplicate value for ${dupField}`, data: err.message });
+    }
+    console.error('Registration Error:', err);
+    return res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 
@@ -133,10 +102,11 @@ router.post('/register', async (req, res) => {
  */
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const emailNorm = String(req.body.email || '').toLowerCase().trim();
+    const { password } = req.body;
 
-    // password is select:false in model, so include it here
-    const user = await User.findOne({ email: (email || '').toLowerCase().trim() }).select('+password');
+    // Include password even if select:false in schema
+    const user = await User.findOne({ email: emailNorm }).select('+password');
     if (!user) {
       return res.status(400).json({
         success: false,
@@ -175,7 +145,7 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error('LOGIN error:', err);
     return res.status(500).json({
       success: false,
       message: req.t ? req.t('common.server_error') : 'Server Error',
@@ -183,4 +153,4 @@ router.post('/login', async (req, res) => {
   }
 });
 
-export default router;
+module.exports= router;
