@@ -66,12 +66,12 @@ const Login = () => {
       localStorage.setItem("token", data.token);
       localStorage.setItem("userEmail", data.email);
       localStorage.setItem("userRole", data.role);
-      localStorage.setItem("voterId", data.id);
+      localStorage.setItem("voterId", data.voterId);
       localStorage.setItem("fullName", data.fullName);
       localStorage.setItem("profilePic", data.profilePic || "");
 
       // Normalize role string
-      let role = (data.role || "").toLowerCase().trim();
+      let role = (data?.data?.role || "").toLowerCase().trim();
 
       // Convert underscores to spaces if needed for mapping
       role = role.replace(/_/g, " "); // 'electoral_committee' -> 'electoral committee'
