@@ -5,7 +5,6 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 
 import Heropg from "./components/heropg";
 import Registration from "./components/Registration";
-
 import AboutUs from "./pages/AboutUs";
 import ContactUs from "./pages/ContactUs";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -29,11 +28,15 @@ function App() {
           <Route path="/about" element={<AboutUs />} />
           <Route path="/contact" element={<ContactUs />} />
 
-          {/* Admin Dashboard */}
-          <Route path="/admin-dashboard" element={<AdminDashboard />} />
-          <Route path="/admin-dashboard/votes" element={<Votes />} />
-          <Route path="/admin-dashboard/candidates" element={<CandidatesList />} />
-          <Route path="/admin-dashboard/voters" element={<VotersList />} />
+          {/* ✅ Admin Dashboard with Nested Routes */}
+          <Route path="/admin-dashboard" element={<AdminDashboard />}>
+            {/* Default dashboard content */}
+            <Route index element={<div />} /> {/* Dashboard handled inside component */}
+            {/* Nested pages */}
+            <Route path="votes" element={<Votes />} />
+            <Route path="candidates" element={<CandidatesList />} />
+            <Route path="voters" element={<VotersList />} />
+          </Route>
 
           {/* Candidate Dashboard */}
           <Route path="/candidate-dashboard" element={<CandidateDashboard />} />

@@ -31,7 +31,7 @@ const translations = {
     voters: "Voters",
     candidate: "Candidate",
     candidates: "Candidates",
-    electrolCommittee: "Electrol Committee",
+    electoralCommittee: "Electoral Committee",
     admin: "Admin",
     register: "Register Now",
     alreadyRegistered: "Already registered?",

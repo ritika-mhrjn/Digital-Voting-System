@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Outlet } from "react-router-dom";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
 import {
   Menu,
@@ -33,14 +33,22 @@ const menuItems = [
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
-  const [activeMenu, setActiveMenu] = useState("dashboard");
   const [isOnline, setIsOnline] = useState(true);
-
   const [sampleStats, setSampleStats] = useState(null);
   const [winningCandidates, setWinningCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [activeMenu, setActiveMenu] = useState("dashboard");
+
+  useEffect(() => {
+    if (location.pathname.includes("votes")) setActiveMenu("votes");
+    else if (location.pathname.includes("voters")) setActiveMenu("voters");
+    else if (location.pathname.includes("candidates")) setActiveMenu("candidates");
+    else setActiveMenu("dashboard");
+  }, [location.pathname]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -57,7 +65,6 @@ const AdminDashboard = () => {
         setLoading(false);
       }
     };
-
     fetchDashboardData();
   }, []);
 
@@ -80,6 +87,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
+      {/* Sidebar */}
       <aside
         className={`flex flex-col bg-slate-900 text-white transition-all duration-200 ${
           collapsed ? "w-20" : "w-64"
@@ -164,6 +172,7 @@ const AdminDashboard = () => {
         </div>
       </aside>
 
+      {/* Main Content */}
       <div className="flex-1 flex flex-col">
         <header className="flex justify-end items-center p-4 bg-slate-800 border-b border-slate-200">
           <div className="flex items-center gap-3">
@@ -177,7 +186,8 @@ const AdminDashboard = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
-          {activeMenu === "dashboard" ? (
+          {/* ✅ Dashboard is shown only for root /admin-dashboard */}
+          {location.pathname === "/admin-dashboard" ? (
             loading ? (
               <p className="text-center text-gray-600">{t("loading")}...</p>
             ) : (
@@ -264,6 +274,7 @@ const AdminDashboard = () => {
               </>
             )
           ) : (
+            // ✅ Show nested routes (like votes, voters, candidates)
             <Outlet />
           )}
         </main>

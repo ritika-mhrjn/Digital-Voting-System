@@ -70,73 +70,66 @@ const Registration = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const errors = validateForm();
-    setFormErrors(errors);
+  e.preventDefault();
+  const errors = validateForm();
+  setFormErrors(errors);
 
-    if (Object.keys(errors).length === 0) {
-      // Proceed with registration (biometricData may be null if user didn't capture)
-      setLoading(true);
-      try {
-<<<<<<< HEAD
-        const payload = {
-          role: formData.role,
-          fullName: formData.fullName,
-          dateOfBirth: formData.dateOfBirth,
-          phone: formData.phone,
-          email: formData.email,
-          password: formData.password,
-          idType: formData.idType,
-          idNumber: formData.idNumber,
-          voterId: formData.voterId,
-          province: formData.province,
-          district: formData.district,
-          ward: formData.ward
-        };
+  if (Object.keys(errors).length === 0) {
+    setLoading(true);
 
-        const response = await registerUser(payload);
-=======
-        const response = await registerUser({ ...formData, biometricData });
->>>>>>> b1e2cfa584f0bc35d0ddd5c5c8cd2ab7ff8f7dd8
-        console.log("User registered successfully:", response);
+    try {
+      // Create payload with form data + biometric data
+      const payload = {
+        role: formData.role,
+        fullName: formData.fullName,
+        dateOfBirth: formData.dateOfBirth,
+        phone: formData.phone,
+        email: formData.email,
+        password: formData.password,
+        idType: formData.idType,
+        idNumber: formData.idNumber,
+        voterId: formData.voterId,
+        province: formData.province,
+        district: formData.district,
+        ward: formData.ward,
+        biometricData
+      };
 
-          // If registration returned a user id and biometric data was provided, attempt to register the face(s)
-          try {
-            const userId = response?.data?.id || response?.data?._id || response?.id || null;
-            if (userId && biometricData) {
-              // prefer batch endpoint when multiple images provided
-              const API_BASE = import.meta.env.VITE_API_URL || '';
-              const images = Array.isArray(biometricData.data) ? biometricData.data : [biometricData.data];
-              // call biometric register-batch (best-effort, do not block overall registration)
-              await fetch(`${API_BASE}/api/biometrics/face/register-batch`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, images, consent: true }),
-              }).then(res => res.json()).then(r => {
-                if (!r || !r.success) console.warn('Biometric register-batch returned error', r);
-              }).catch(err => console.warn('Biometric register-batch failed', err));
-            }
-          } catch (bioErr) {
-            console.warn('Post-registration biometric upload failed (non-fatal):', bioErr);
-          }
+      // Register user
+      const response = await registerUser(payload);
+      console.log("User registered successfully:", response);
 
-          alert(t("registrationSuccess") || "Registration successful!");
-          navigate("/login");
-      } catch (error) {
-<<<<<<< HEAD
-        console.error("Registration failed:", error.response?.data || error);
-        alert(error.response?.data?.message || "Registration failed. Please try again.");
-=======
-        console.error("Registration failed:", error);
-          // Surface server message when available to help debugging / user feedback
-          const serverMessage = error.response?.data?.message || error.message || 'Registration failed. Please try again.';
-          alert(serverMessage);
->>>>>>> b1e2cfa584f0bc35d0ddd5c5c8cd2ab7ff8f7dd8
-      } finally {
-        setLoading(false);
+      // Post-registration: upload face images if provided
+      const userId = response?.data?.id || response?.data?._id || response?.id || null;
+      if (userId && biometricData) {
+        const API_BASE = import.meta.env.VITE_API_URL || '';
+        const images = Array.isArray(biometricData.data) ? biometricData.data : [biometricData.data];
+
+        await fetch(`${API_BASE}/api/biometrics/face/register-batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, images, consent: true }),
+        })
+        .then(res => res.json())
+        .then(r => {
+          if (!r || !r.success) console.warn('Biometric register-batch returned error', r);
+        })
+        .catch(err => console.warn('Post-registration biometric upload failed', err));
       }
+
+      alert(t("registrationSuccess") || "Registration successful!");
+      navigate("/login");
+
+    } catch (error) {
+      console.error("Registration failed:", error);
+      const serverMessage = error.response?.data?.message || error.message || 'Registration failed. Please try again.';
+      alert(serverMessage);
+    } finally {
+      setLoading(false);
     }
-  };
+  }
+};
+
 
   const handleBack = () => {
     navigate("/");
@@ -288,8 +281,6 @@ const Registration = () => {
                   >
                     <option value="voter">{t("voter")}</option>
                     <option value="candidate">{t("candidate")}</option>
-                    <option value="admin">{t("admin")}</option>
-                    <option value="electrol committee">{t("electrolCommittee")}</option>
                   </select>
                 </div>
 
