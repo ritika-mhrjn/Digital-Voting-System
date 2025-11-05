@@ -1,4 +1,5 @@
 const axios = require('axios');
+const mongoose = require('mongoose');
 const User = require('../models/User.js');
 const Biometric = require('../models/Biometric.js');
 const logger = require('../utils/logger.js');
@@ -11,12 +12,34 @@ const {
   verifyAuthenticationResponse
 } = require('@simplewebauthn/server');
 
+// Prefer environment override; default to the AI/biometric microservice common dev port (8000).
+// Add a short request timeout so the backend doesn't hang if the microservice is down.
 const BIOMETRIC_SERVICE_URL = process.env.BIOMETRIC_SERVICE_URL || 'http://localhost:8000';
+const BIOMETRIC_REQUEST_TIMEOUT = parseInt(process.env.BIOMETRIC_REQUEST_TIMEOUT_MS, 10) || 5000;
+
+// Prevent accidental self-proxy: if BIOMETRIC_SERVICE_URL points to this backend's PORT,
+// bail out with a clear error so devs don't create a request loop.
+function isSelfProxy(url) {
+  try {
+    const parsed = new URL(url);
+    const backendPort = process.env.PORT || '5001';
+    const host = parsed.hostname;
+    const port = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+    if ((host === 'localhost' || host === '127.0.0.1') && port === String(backendPort)) return true;
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
 
 class BiometricController {
 
   async validateFace(req, res) {
     try {
+      if (isSelfProxy(BIOMETRIC_SERVICE_URL)) {
+        logger.error('BIOMETRIC_SERVICE_URL appears to point to this backend process; refusing to proxy to self', { BIOMETRIC_SERVICE_URL });
+        return res.status(502).json({ success: false, message: 'Biometric service misconfigured: BIOMETRIC_SERVICE_URL points to backend. Set it to the biometric microservice URL.' });
+      }
       const { userId, image } = req.body;
 
       if (!image) {
@@ -29,7 +52,8 @@ class BiometricController {
         { image },
         {
           headers: { 'Content-Type': 'application/json' },
-          validateStatus: false
+          validateStatus: false,
+          timeout: BIOMETRIC_REQUEST_TIMEOUT
         }
       );
 
@@ -77,14 +101,23 @@ class BiometricController {
   // NEW: Strict quality check proxy to microservice
   async strictQualityCheck(req, res) {
     try {
+      if (isSelfProxy(BIOMETRIC_SERVICE_URL)) {
+        logger.error('BIOMETRIC_SERVICE_URL appears to point to this backend process; refusing to proxy to self', { BIOMETRIC_SERVICE_URL });
+        return res.status(502).json({ success: false, message: 'Biometric service misconfigured: BIOMETRIC_SERVICE_URL points to backend. Set it to the biometric microservice URL.' });
+      }
       const { image } = req.body;
       if (!image) return res.status(400).json({ success: false, message: 'Image is required' });
 
       const response = await axios.post(
         `${BIOMETRIC_SERVICE_URL}/api/face/quality-check`,
         { image },
-        { headers: { 'Content-Type': 'application/json' }, validateStatus: false }
+        { headers: { 'Content-Type': 'application/json' }, validateStatus: false, timeout: BIOMETRIC_REQUEST_TIMEOUT }
       );
+
+      if (!response || typeof response.data === 'undefined') {
+        logger.warn('Biometric service returned empty response for quality-check', { url: `${BIOMETRIC_SERVICE_URL}/api/face/quality-check` });
+        return res.status(502).json({ success: false, message: 'Biometric service returned no data' });
+      }
 
       // Normalize and apply relaxed acceptance similar to validateFace
       const svc = response.data || {};
@@ -324,6 +357,17 @@ class BiometricController {
         });
       }
 
+      // Validate and convert userId to ObjectId
+      let objectId;
+      try {
+        objectId = new mongoose.Types.ObjectId(userId);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid ObjectId format for userId'
+        });
+      }
+
       // require consent for face enrollment
       if (!req.body?.consent) {
         return res.status(400).json({ success: false, message: 'User consent is required for face enrollment' });
@@ -340,8 +384,8 @@ class BiometricController {
       // We will persist the provided image data into the Biometric record for this user
       // and return success regardless of microservice availability or checks.
 
-      // Verify user exists
-      const user = await User.findById(userId);
+      // Verify user exists using ObjectId
+      const user = await User.findById(objectId);
       if (!user) {
         return res.status(404).json({
           success: false,
@@ -359,31 +403,35 @@ class BiometricController {
           // create a local template id to reference the stored image
           const templateId = randomUUID();
 
-          // Save a sample image immediately so UI can show a preview
-          await Biometric.findOneAndUpdate(
-            { userId },
-            {
-              $set: {
-                faceRegistered: true,
-                faceTemplateId: templateId,
-                faceImageSample: image_data,
-                registrationDate: new Date()
-              },
-              $push: {
-                faceTemplateIds: templateId
-              }
+          // Build an explicit upsert payload that ensures userId is stored as an ObjectId
+          const updateObj = {
+            $set: {
+              userId: user._id,
+              faceRegistered: true,
+              faceTemplateId: templateId,
+              faceImageSample: image_data,
+              registrationDate: new Date()
             },
-            { upsert: true }
+            $addToSet: {
+              faceTemplateIds: templateId
+            }
+          };
+
+          // Use setDefaultsOnInsert to ensure defaults from the schema are applied on insert
+          const biometricDoc = await Biometric.findOneAndUpdate(
+            { userId: user._id },
+            updateObj,
+            { upsert: true, new: true, setDefaultsOnInsert: true }
           );
 
-          logger.info('Face registration persisted (relaxed mode)', { userId, templateId });
+          logger.info('Face registration persisted (relaxed mode)', { userId: user._id, templateId, biometricId: biometricDoc?._id });
 
           // Attempt to call biometric microservice synchronously to obtain an encoding
           try {
             const svcResp = await axios.post(
-              `${BIOMETRIC_SERVICE_URL}/api/biometrics/face/register`,
-              { user_id: userId, image_data },
-              { timeout: 30000 }
+              `${BIOMETRIC_SERVICE_URL}/api/face/register`,
+              { user_id: user._id.toString(), image_data },
+              { timeout: 30000, validateStatus: false }
             );
 
             const svcData = svcResp.data || {};
@@ -394,7 +442,7 @@ class BiometricController {
               const encrypted = encryptTemplate(encoding);
               try {
                 await Biometric.findOneAndUpdate(
-                  { userId },
+                  { userId: user._id },
                   {
                     $set: {
                       faceEncoding: Array.isArray(encoding) ? encoding : null,
@@ -405,10 +453,10 @@ class BiometricController {
                       faceEncodings: Array.isArray(encoding) ? encoding : []
                     }
                   },
-                  { upsert: true }
+                  { upsert: true, new: true }
                 );
               } catch (persistEncErr) {
-                logger.warn('Failed to persist face encoding returned by microservice', { err: persistEncErr.message, userId });
+                logger.warn('Failed to persist face encoding returned by microservice', { err: persistEncErr.message, userId: user._id });
               }
             }
           } catch (svcErr) {
@@ -417,10 +465,11 @@ class BiometricController {
 
         } catch (persistErr) {
           logger.error('Failed to persist relaxed face registration', { err: persistErr.message, userId });
-          // still return success per relaxed requirement
+          return res.status(500).json({ success: false, message: 'Failed to persist biometric registration', error: persistErr.message });
         }
 
-        return res.json({ success: true, message: 'Face registered (relaxed mode)', data: { template_id: true } });
+        // Return the created/updated Biometric document for verification by the frontend
+        return res.json({ success: true, message: 'Face registered (relaxed mode)', data: biometricDoc });
 
     } catch (error) {
       logger.error('Face registration error', error, { userId: req.body.userId });

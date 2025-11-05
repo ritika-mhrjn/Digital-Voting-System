@@ -134,6 +134,8 @@ const BiometricChoice = ({ userId, onCompletion, mode = 'registration' }) => {
         biometricType: 'face',
         // backend face endpoints expect `image_data` for face payloads
         ...(faceData && { image_data: faceData })
+        // include explicit consent for registration flows so backend will persist
+        , ...(mode === 'registration' ? { consent: true } : {})
       };
 
       const response = await axios.post(

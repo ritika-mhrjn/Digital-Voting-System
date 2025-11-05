@@ -1,24 +1,65 @@
-Real-Time Digital Voting System
+Add explicit defaults & loosen schema for debugging
 
-Overview:
-A secure and accessible online voting platform for elections with real-time results/leaderboards.
-(Good to have usage of Blockchain technology)
-Features:
-• Electoral Committee adds voters to the voters database, which includes Voter ID and
-user identification through Voter ID
-• Electoral Committee can launch an election/poll, add candidates, and categorize eligible
-voters for a particular election/poll
-• User authentication via digital Voter ID during voting and votes for a particular candidate
-• Automatic leaderboard update and announcement of results once the election completes
-or on the scheduled date/time
-• Admin dashboard for monitoring the voting process (E.g. percentage of votes dropped )
-• Candidates can publish their agendas and promotional campaigns, and people can
-interact till 3 days before voting starts. Winner prediction based on this engagement
+(helps confirm writes even if microservice or encryption is off)
 
-Use Cases:
-• Voter: Casts a vote by authenticating his/her Voter ID/ document
-• Admin: Monitors the voting process, ensures integrity, and publishes results.
-• AI System: Winner prediction based on user engagements before election
+Add to your schema definition:
+
+const BiometricSchema = new mongoose.Schema({
+  faceEncoding: { type: Array, default: null },
+  faceEncodingEncrypted: { type: String, default: null },
+  faceTemplateId: { type: String, default: null },
+  faceTemplateIds: { type: [String], default: [] },
+  faceImageSample: { type: String, default: null },
+  faceRegistered: { type: Boolean, default: false },
+  registrationDate: { type: Date, default: Date.now },
+  lastVerified: { type: Date, default: null },
+}, { strict: false }); // temporary for debugging
 
 
-Users register their biometrics -> the system records it, embeds it, and stores the numbers in databse -> during the vote registration process they validate their face before registering. 
+Then restart the backend and do one registration — check the Mongo document; you should now see those fields even if the microservice didn’t send data.
+
+🔹 Option 2 — Run a direct controller-level test
+
+Create a small script (in backend/scripts/testBiometricWrite.js):
+
+const mongoose = require('mongoose');
+const Biometric = require('../models/Biometric');
+require('dotenv').config();
+
+(async () => {
+  await mongoose.connect(process.env.MONGO_URI);
+  const doc = await Biometric.findOneAndUpdate(
+    { userId: 'test-user' },
+    {
+      $set: {
+        faceEncoding: [1, 2, 3],
+        faceEncodingEncrypted: 'abc123',
+        faceTemplateId: 'TEMP001',
+        faceRegistered: true,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  console.log('Saved doc:', doc);
+  process.exit();
+})();
+
+
+Run with:
+
+node backend/scripts/testBiometricWrite.js
+
+
+If the resulting doc in MongoDB contains those fields, schema and DB path are confirmed working — the issue lies before this (microservice or controller flow).
+
+🔹 Option 3 — Test microservice connectivity
+
+Run:
+
+curl -X POST http://localhost:8000/api/face/register \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"debug","image_data":"data:image/png;base64,<BASE64_SAMPLE>"}'
+
+
+If you get JSON with keys like "encoding" and "template_id", the service is healthy.
+If not, backend will never get encoding → DB stays empty.

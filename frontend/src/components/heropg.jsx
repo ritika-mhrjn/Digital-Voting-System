@@ -78,10 +78,10 @@ const Heropg = () => {
         </header>
 
         <div className="flex-1 flex flex-col justify-start items-center px-4 z-10 relative pt-32 md:pt-40">
-          <h1 className="text-4xl md:text-5xl font-bold text-white drop-shadow-lg mb-4 text-center">
+          <h1 className="text-4xl md:text-8xl font-bold text-white drop-shadow-lg mb-4 text-center" style={{ fontFamily: "Cooper BT, serif" }}>
             {heroContent.title || t("welcome")}
           </h1>
-          <p className="text-lg md:text-2xl text-white max-w-3xl pt-4 leading-relaxed drop-shadow-md text-left mx-auto">
+          <p className="text-lg md:text-2xl text-white max-w-3xl pt-4 leading-relaxed drop-shadow-md text-center mx-auto"style={{ fontFamily: "Cooper BT, serif" }}>
             {heroContent.description || t("nayamat")}
           </p>
         </div>
@@ -90,15 +90,15 @@ const Heropg = () => {
       <footer className="w-full bg-blue-100 border-t border-black">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start gap-6 p-4 text-gray-700">
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-blue-900 mb-2">{t("nayaMat")}</h2>
-            <p className="text-sm text-gray-600 leading-relaxed max-w-sm">{t("nayaMatpart")}</p>
+            <h2 className="text-xl font-bold text-blue-900 mb-2">{t("NayaMat")}</h2>
+            <p className="text-sm text-gray-600 leading-relaxed max-w-sm">{t("A digital voting system.")}</p>
           </div>
 
           <div className="flex-1">
-            <h3 className="text-sm text-blue-800 font-semibold mb-2">{t("intouch")}</h3>
-            <p className="text-xs mb-1"><span className="font-medium">{t("email")}:</span> support@nayamat.com</p>
-            <p className="text-xs mb-1"><span className="font-medium">{t("phone")}:</span> {t("num")}</p>
-            <p className="text-xs"><span className="font-medium">{t("address")}:</span> {t("add")}</p>
+            <h3 className="text-sm text-blue-800 font-semibold mb-2">{t("Intouch")}</h3>
+            <p className="text-xs mb-1"><span className="font-medium">{t("Email")}:</span> support@nayamat.com</p>
+            <p className="text-xs mb-1"><span className="font-medium">{t("Phone")}:</span> {t("num")}</p>
+            <p className="text-xs"><span className="font-medium">{t("Address")}:</span> {t("add")}</p>
           </div>
         </div>
 
