@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useAuth } from "../contexts/AuthContext";
 
 const Heropg = () => {
   const { language, setLanguage, t } = useLanguage();
+  const { user } = useAuth();
+  
   const navigate = useNavigate();
   const [heroContent] = useState({
     title: "",
@@ -67,12 +70,28 @@ const Heropg = () => {
                 <option value="np">{t("nepali")}</option>
               </select>
 
-              <button
+              {
+                user ? (
+                  <button
+                  onClick={() => {
+                    if (user.role === "admin") navigate("/admin-dashboard");
+                    else if (user.role === "candidate") navigate("/candidate-dashboard");
+                    else if (user.role === "electoral_committee") navigate("/electoral-committee-dashboard");
+                    else if (user.role === "voter") navigate("/voter-dashboard");
+                  }}
+                  className="px-3 py-1 border border-gray-300 text-gray-900 rounded-lg hover:bg-gray-300 transition font-medium"
+                  >
+                    Dashboard
+                    </button>
+                ) : (
+                  <button
                 onClick={() => navigate("/register")}
                 className="px-3 py-1 border border-gray-300 text-gray-900 rounded-lg hover:bg-gray-300 transition font-medium"
               >
                 {t("loginRegister")}
               </button>
+                )
+              }
             </div>
           </nav>
         </header>

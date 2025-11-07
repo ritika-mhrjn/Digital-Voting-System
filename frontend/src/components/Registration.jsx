@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Shield } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -6,10 +6,12 @@ import NepaliDatePicker from "@sbmdkl/nepali-datepicker-reactjs";
 import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 import BiometricChoice from './biometric/BiometricChoice';
 import { registerUser } from "../api/endpoints";
+import { useAuth } from "../contexts/AuthContext";
 
 const Registration = () => {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
     role: "voter",
@@ -134,6 +136,17 @@ const Registration = () => {
   const handleBack = () => {
     navigate("/");
   };
+
+  const isAlreadyLoggedIn = !!user;
+  
+    useEffect(() => {
+      if (isAlreadyLoggedIn) {
+        if (user?.role === "admin") navigate("/admin-dashboard");
+        else if (user?.role === "candidate") navigate("/candidate-dashboard");
+        else if (user?.role === "electoral_committee") navigate("/electoral-committee-dashboard");
+        else if (user?.role === "voter") navigate("/voter-dashboard");  
+    }
+    }, [isAlreadyLoggedIn, user, navigate]);
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">

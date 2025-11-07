@@ -15,43 +15,70 @@ import Votes from "./pages/Votes";
 import CandidatesList from "./pages/CandidatesList";
 import VotersList from "./pages/VotersList";
 import Login from "./pages/Login";
+import ProtectedLayout from "./layouts/ProtectedLayout";
+import { AuthProvider } from "./contexts/AuthContext";
 
 function App() {
   return (
-    <LanguageProvider>
-      <Router>
-        <Routes>
-          {/* Public Pages */}
-          <Route path="/" element={<Heropg />} />
-          <Route path="/register" element={<Registration />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/about" element={<AboutUs />} />
-          <Route path="/contact" element={<ContactUs />} />
+    <AuthProvider>
+      <LanguageProvider>
+        <Router>
+          <Routes>
+            {/* Public Pages */}
+            <Route path="/" element={<Heropg />} />
+            <Route path="/register" element={<Registration />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/contact" element={<ContactUs />} />
 
-          {/* ✅ Admin Dashboard with Nested Routes */}
-          <Route path="/admin-dashboard" element={<AdminDashboard />}>
-            {/* Default dashboard content */}
-            <Route index element={<div />} /> {/* Dashboard handled inside component */}
-            {/* Nested pages */}
-            <Route path="votes" element={<Votes />} />
-            <Route path="candidates" element={<CandidatesList />} />
-            <Route path="voters" element={<VotersList />} />
-          </Route>
+            {/* Protected Routes - Admin Dashboard with Nested Routes */}
+            <Route
+              path="/admin-dashboard"
+              element={
+                <ProtectedLayout>
+                  <AdminDashboard />
+                </ProtectedLayout>
+              }
+            >
+              {/* Nested pages */}
+              <Route path="votes" element={<Votes />} />
+              <Route path="candidates" element={<CandidatesList />} />
+              <Route path="voters" element={<VotersList />} />
+            </Route>
 
-          {/* Candidate Dashboard */}
-          <Route path="/candidate-dashboard" element={<CandidateDashboard />} />
+            {/* Protected Routes - Candidate Dashboard */}
+            <Route
+              path="/candidate-dashboard"
+              element={
+                <ProtectedLayout>
+                  <CandidateDashboard />
+                </ProtectedLayout>
+              }
+            />
 
-          {/* Voter Dashboard */}
-          <Route path="/voter-dashboard" element={<VoterDashboard />} />
+            {/* Protected Routes - Voter Dashboard */}
+            <Route
+              path="/voter-dashboard"
+              element={
+                <ProtectedLayout>
+                  <VoterDashboard />
+                </ProtectedLayout>
+              }
+            />
 
-          {/* Electoral Committee Dashboard */}
-          <Route
-            path="/electoral-committee-dashboard"
-            element={<ElectoralCommitteeDashboard />}
-          />
-        </Routes>
-      </Router>
-    </LanguageProvider>
+            {/* Protected Routes - Electoral Committee Dashboard */}
+            <Route
+              path="/electoral-committee-dashboard"
+              element={
+                <ProtectedLayout>
+                  <ElectoralCommitteeDashboard />
+                </ProtectedLayout>
+              }
+            />
+          </Routes>
+        </Router>
+      </LanguageProvider>
+    </AuthProvider>
   );
 }
 

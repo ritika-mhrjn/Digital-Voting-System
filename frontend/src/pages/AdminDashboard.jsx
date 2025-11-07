@@ -23,6 +23,8 @@ import { getAdminStats, getWinningCandidates } from "../api/endpoints";
 import LivePoll from "../components/LivePoll";
 import LivePollHero from "../components/LivePollHero";
 
+import { useAuth } from "../contexts/AuthContext";
+
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const menuItems = [
@@ -36,6 +38,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
+  const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [sampleStats, setSampleStats] = useState(null);
@@ -70,8 +73,7 @@ const AdminDashboard = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.clear();
-    navigate("/");
+    logout(); // This clears all storage and redirects to /login
   };
 
   const handleMenuClick = (id) => {

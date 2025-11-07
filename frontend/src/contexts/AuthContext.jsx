@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
 const AuthContext = createContext(null);
 
@@ -11,15 +12,43 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => {
-    return localStorage.getItem("token") || sessionStorage.getItem("token") || null;
+    const storedToken = localStorage.getItem("token") || sessionStorage.getItem("token");
+    
+    // Validate token on initial load
+    if (storedToken) {
+      try {
+        const decoded = jwtDecode(storedToken);
+        const currentTime = Date.now() / 1000;
+        
+        if (decoded.exp && decoded.exp > currentTime) {
+          return storedToken;
+        } else {
+          // Token expired, clear storage
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          sessionStorage.removeItem("token");
+          sessionStorage.removeItem("user");
+          return null;
+        }
+      } catch (error) {
+        // Invalid token, clear storage
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("user");
+        return null;
+      }
+    }
+    return null;
   });
 
   const [user, setUser] = useState(() => {
+    if (!token) return null;
     const u = localStorage.getItem("user") || sessionStorage.getItem("user");
     return u ? JSON.parse(u) : null;
   });
 
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   // ✅ Automatically set token header
   useEffect(() => {
@@ -48,9 +77,24 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setToken(null);
     setUser(null);
-    localStorage.clear();
-    sessionStorage.clear();
+    
+    // Clear all auth-related items from storage
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("voterId");
+    localStorage.removeItem("fullName");
+    localStorage.removeItem("profilePic");
+    
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
+    
+    // Remove Authorization header
     delete axios.defaults.headers.common["Authorization"];
+    
+    // Reload to clear any cached state
+    window.location.href = "/login";
   };
 
   // ✅ Update Bio
@@ -71,6 +115,12 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
+  // Update Political Sign
+  const updatePoliticalSign = async (url) => {
+      setUser((u) => ({ ...u, politicalSign: url }));
+      await updateUserProfile(user.id, { politicalSign: url });
+    };
+
   return (
     <AuthContext.Provider
       value={{
@@ -81,6 +131,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         updateBio,
         updateProfilePic,
+        updatePoliticalSign,
       }}
     >
       {children}

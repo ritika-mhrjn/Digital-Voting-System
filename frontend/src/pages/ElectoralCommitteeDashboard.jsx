@@ -93,7 +93,9 @@ const ElectoralCommitteeDashboard = () => {
     }
   };
 
-  const handleLogout = () => logout();
+  const handleLogout = () => {
+    logout(); // This clears all storage and redirects to /login
+  };
 
   const handleBack = () => setSelectedCandidate(null);
 

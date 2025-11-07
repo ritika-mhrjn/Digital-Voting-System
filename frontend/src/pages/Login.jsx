@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -6,7 +6,7 @@ import { loginUser } from "../api/endpoints";
 import { useAuth } from "../contexts/AuthContext";
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const { t } = useLanguage();
 
@@ -51,10 +51,14 @@ const Login = () => {
     try {
       console.log("Sending request to backend...");
       const res = await loginUser(credentials);
-      console.log("Backend response:", res);
+      console.log("Backend response:", res.data);
 
-      // ✅ extract correctly
-      const { token, user } = res.data || {};
+      const token = res?.data?.token;
+      const user = res?.data;
+
+      console.log("user: ", user);
+      
+      
 
       if (!token || !user) {
         throw new Error("Invalid response from server");
@@ -81,6 +85,17 @@ const Login = () => {
   };
 
   const handleBack = () => navigate("/register");
+
+  const isAlreadyLoggedIn = !!user;
+
+  useEffect(() => {
+    if (isAlreadyLoggedIn) {
+      if (user?.role === "admin") navigate("/admin-dashboard");
+      else if (user?.role === "candidate") navigate("/candidate-dashboard");
+      else if (user?.role === "electoral_committee") navigate("/electoral-committee-dashboard");
+      else if (user?.role === "voter") navigate("/voter-dashboard");  
+  }
+  }, [isAlreadyLoggedIn, user, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">

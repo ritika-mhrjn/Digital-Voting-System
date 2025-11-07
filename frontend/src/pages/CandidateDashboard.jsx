@@ -1,48 +1,53 @@
-import React, { useState, useContext, createContext, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, Video, X, Edit2, Trash2, Save, LogOut } from "lucide-react";
-import { getPosts, createPost, updatePost, deletePost, updateUserProfile } from "../api/endpoints";
+import { getPosts, createPost, updatePost, deletePost } from "../api/endpoints";
+import { useAuth, AuthProvider } from "../contexts/AuthContext";
 
 // -------- Auth Context --------
-const AuthContext = createContext();
+// const AuthContext = createContext();
 
-const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState({
-    id: 1,
-    fullName: "Anuska",
-    email: "anuska@example.com",
-    bio: "",
-    profilePic: null,
-    politicalSign: null,
-    signName: "",
-  });
+// const AuthProvider = ({ children }) => {
+//   const { user, updateBio, updateProfilePic } = useAuth();
+//   const [user, setUser] = useState({
+//     id: 1,
+//     fullName: "Anuska",
+//     email: "anuska@example.com",
+//     bio: "",
+//     profilePic: null,
+//     politicalSign: null,
+//     signName: "",
+//   });
 
-  const updateProfilePic = async (newPicUrl) => {
-    setUser((u) => ({ ...u, profilePic: newPicUrl }));
-    await updateUserProfile(user.id, { profilePic: newPicUrl });
-  };
+//   const updateProfilePic = async (newPicUrl) => {
+//     setUser((u) => ({ ...u, profilePic: newPicUrl }));
+//     await updateUserProfile(user.id, { profilePic: newPicUrl });
+//   };
 
-  const updateBio = async (newBio) => {
-    setUser((u) => ({ ...u, bio: newBio }));
-    await updateUserProfile(user.id, { bio: newBio });
-  };
+//   const updateBio = async (newBio) => {
+//     setUser((u) => ({ ...u, bio: newBio }));
+//     await updateUserProfile(user.id, { bio: newBio });
+//   };
 
-  const updatePoliticalSign = async (url) => {
-    setUser((u) => ({ ...u, politicalSign: url }));
-    await updateUserProfile(user.id, { politicalSign: url });
-  };
+//   const updatePoliticalSign = async (url) => {
+//     setUser((u) => ({ ...u, politicalSign: url }));
+//     await updateUserProfile(user.id, { politicalSign: url });
+//   };
 
-  return (
-    <AuthContext.Provider value={{ user, updateProfilePic, updateBio, updatePoliticalSign, setUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+//   return (
+//     <AuthContext.Provider value={{ user, updateProfilePic, updateBio, updatePoliticalSign, setUser }}>
+//       {children}
+//     </AuthContext.Provider>
+//   );
+// };
 
 // -------- Navbar --------
 const Navbar = ({ setPage, search, setSearch }) => {
-  const navigate = useNavigate();
-  const handleLogout = () => navigate("/");
+  const { logout } = useAuth();
+  
+  const handleLogout = () => {
+    logout(); // This clears all storage and redirects to /login
+  };
 
   return (
     <nav className="bg-blue-50 text-black flex items-center justify-between px-6 py-3 shadow-md fixed w-full top-0 left-0 z-20">
@@ -223,7 +228,8 @@ const PostCreator = ({ user, posts, setPosts }) => {
 
 // -------- FeedPage --------
 const FeedPage = ({ posts, setPosts, onViewMedia, search }) => {
-  const { user } = useContext(AuthContext);
+  // const { user } = useContext(AuthContext);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -278,7 +284,8 @@ const MediaModal = ({ media, onClose }) => {
 
 // -------- ProfilePage --------
 const ProfilePage = ({ posts, setPosts, onViewMedia }) => {
-  const { user, updateProfilePic, updateBio, updatePoliticalSign, setUser } = useContext(AuthContext);
+  // const { user, updateProfilePic, updateBio, updatePoliticalSign, setUser } = useContext(AuthContext);
+  const { user, updateProfilePic, updateBio, updatePoliticalSign, setUser } = useAuth();
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioText, setBioText] = useState(user.bio);
 

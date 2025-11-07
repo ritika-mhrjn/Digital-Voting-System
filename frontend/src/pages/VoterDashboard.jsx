@@ -54,6 +54,12 @@ export const AuthProvider = ({ children }) => {
 // --- NAVBAR ---
 const Navbar = ({ setPage }) => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
+  
+  const handleLogout = () => {
+    logout(); // This clears storage, removes auth header, and redirects to /login
+  };
+
   return (
     <nav className="bg-blue-50 text-black flex items-center justify-between px-6 py-5 shadow-md fixed w-full top-0 left-0 z-20">
       <div
@@ -73,7 +79,7 @@ const Navbar = ({ setPage }) => {
           Vote Now
         </button>
         <button
-          onClick={() => navigate("/")}
+          onClick={handleLogout}
           className="px-4 py-2 rounded bg-blue-800 text-white hover:bg-blue-900 flex items-center gap-1"
         >
           <LogOut size={18} /> Logout
@@ -304,7 +310,7 @@ const ProfilePage = () => {
           </label>
         </div>
 
-        <h2 className="mt-4 text-2xl font-semibold text-gray-800">{user.fullName}</h2>
+        <h2 className="mt-4 text-2xl font-semibold text-gray-800">{user.fullName} ({user.role})</h2>
         <p className="text-gray-500">{user.email}</p>
 
         <div className="mt-4 w-full">
@@ -342,6 +348,7 @@ const ProfilePage = () => {
       <div className="bg-white rounded-xl shadow-lg border p-6">
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Personal Information</h3>
         <div className="flex flex-col gap-3 text-gray-700">
+          <p><strong>Email:</strong> {user.email}</p>
           <p><strong>Date of Birth:</strong> {user.dateOfBirth}</p>
           <p><strong>Phone:</strong> {user.phone}</p>
           <p><strong>ID Type:</strong> {user.idType}</p>
