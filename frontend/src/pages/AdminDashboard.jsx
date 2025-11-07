@@ -21,6 +21,7 @@ import {
 } from "chart.js";
 import { getAdminStats, getWinningCandidates } from "../api/endpoints";
 import LivePoll from "../components/LivePoll";
+import LivePollHero from "../components/LivePollHero";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -196,7 +197,9 @@ const AdminDashboard = () => {
                   {t("dashboard")}
                 </h1>
 
-                <div className="max-w-4xl mx-auto mb-6">
+                <LivePollHero electionId={null} title="Live AI Winner Prediction" />
+                {/* prominent hero component for live AI predictions */}
+                <div className="mb-6">
                   <LivePoll />
                 </div>
 
