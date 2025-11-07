@@ -196,6 +196,29 @@ async def verify_face(request: FaceRequest):
         logger.error(f"Face verification failed: {e}")
         raise HTTPException(status_code=400, detail=f"Face verification error: {e}")
 
+
+@app.post("/api/voter/verify-face", response_model=BiometricResponse)
+async def verify_voter_face(request: FaceRequest):
+    """
+    Used during vote registration or authentication to verify live face with stored biometric.
+    """
+    try:
+        logger.info(f"Voter face verification request for user: {request.user_id}")
+
+        image_bytes = base64.b64decode(request.image_data.split(",")[1])
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        result = await face_service.verify_face(image, request.user_id)
+        return BiometricResponse(
+            success=result.get("success", False),
+            data=result,
+            message="✅ Face verified for voter" if result.get("success") else "❌ Verification failed"
+        )
+    except Exception as e:
+        logger.error(f"Voter face verification failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Voter face verification error: {e}")
+
 # ------------------------------------------------------
 # FINGERPRINT REGISTRATION
 # ------------------------------------------------------

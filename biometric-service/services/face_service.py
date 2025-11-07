@@ -8,6 +8,7 @@ import json
 from utils.image_utils import ImageUtils
 from models.biometric_models import FaceEncoding, VerificationResult, LightingCondition
 import uuid
+from services.database import save_face_encoding, get_face_encoding
 
 class FaceService:
     def __init__(self):
@@ -131,6 +132,13 @@ class FaceService:
             }
 
             # Return encoding so that the backend may persist it in MongoDB
+            try:
+                # Persist encrypted encoding to MongoDB (single source of truth)
+                save_face_encoding(user_id, face_encoding, quality_metrics)
+            except Exception as e:
+                # log and continue — registration still returns encoding for backend to retry/persist
+                print(f"Warning: failed to persist encoding to MongoDB for user {user_id}: {e}")
+
             return {
                 'success': True,
                 'user_id': user_id,
@@ -234,6 +242,19 @@ class FaceService:
                     ref_encoding = self.known_face_encodings[tpl]
                 elif user_id in self.known_face_encodings:
                     ref_encoding = self.known_face_encodings[user_id]
+            # If not found in in-memory cache, attempt to load from MongoDB (single source of truth)
+            if ref_encoding is None:
+                try:
+                    stored = get_face_encoding(user_id)
+                    if stored is not None:
+                        ref_encoding = stored
+                        # cache it locally under a template_id if not present
+                        tpl_id = self.user_to_template.get(user_id) or str(uuid.uuid4())
+                        self.known_face_encodings[tpl_id] = ref_encoding
+                        self.user_to_template[user_id] = tpl_id
+                        print(f"🔁 Loaded encoding for {user_id} from MongoDB and cached under {tpl_id}")
+                except Exception as e:
+                    print(f"Warning: failed to load encoding for user {user_id} from MongoDB: {e}")
 
             if ref_encoding is None:
                 # No local template available — cannot compare here

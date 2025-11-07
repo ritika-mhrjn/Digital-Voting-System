@@ -18,11 +18,7 @@
     "axios": "^1.6.0",
     "base64url": "^3.0.1",
     "bcryptjs": "^3.0.3",
-<<<<<<< HEAD
-    "crypto": "^1.0.1",
-=======
     "cors": "^2.8.5",
->>>>>>> b1e2cfa584f0bc35d0ddd5c5c8cd2ab7ff8f7dd8
     "csv-parse": "^6.1.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
