@@ -267,7 +267,6 @@ const FeedPage = () => {
 
   return (
     <div className="max-w-2xl mx-auto mt-28 px-4">
-      <LivePoll />
       {posts.map((post) => (
         <PostCard key={post.id} post={post} onReact={handleReact} onComment={handleComment} user={user} />
       ))}
@@ -348,6 +347,7 @@ const ProfilePage = () => {
       <div className="bg-white rounded-xl shadow-lg border p-6">
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Personal Information</h3>
         <div className="flex flex-col gap-3 text-gray-700">
+          <p><strong>FullName:</strong> {user.fullName}</p>
           <p><strong>Email:</strong> {user.email}</p>
           <p><strong>Date of Birth:</strong> {user.dateOfBirth}</p>
           <p><strong>Phone:</strong> {user.phone}</p>

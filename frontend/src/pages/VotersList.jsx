@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import AddVoterModal from "./AddVoterModal";
 import EditVoterModal from "./EditVoterModal";
 import { useLanguage } from "../contexts/LanguageContext";
-import { getVoters, deleteVoter, updateVoter } from "../api/endpoints"; // Import your API functions
+import { useAuth } from "../contexts/AuthContext"; // ✅ import AuthContext
+import { getVoters, deleteVoter, updateVoter } from "../api/endpoints";
 
 const VotersList = () => {
   const { t } = useLanguage();
+  const { token } = useAuth(); // ✅ get token from context
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -14,11 +16,11 @@ const VotersList = () => {
   const [voters, setVoters] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch voters from backend
   useEffect(() => {
     const fetchVoters = async () => {
       try {
-        const data = await getVoters(); // API call
+        if (!token) return; // 🔒 wait until token is ready
+        const data = await getVoters(token); // ✅ pass token
         setVoters(data);
       } catch (error) {
         console.error("Error fetching voters:", error);
@@ -26,23 +28,22 @@ const VotersList = () => {
         setLoading(false);
       }
     };
-    fetchVoters();
-  }, []);
 
-  // Delete voter
+    fetchVoters();
+  }, [token]); // ✅ refetch when token changes
+
   const handleDelete = async (id) => {
     try {
-      await deleteVoter(id); // API call
+      await deleteVoter(id, token); // ✅ pass token if required
       setVoters(voters.filter((v) => v.id !== id));
     } catch (error) {
       console.error("Error deleting voter:", error);
     }
   };
 
-  // Update voter
   const handleUpdate = async (updatedVoter) => {
     try {
-      await updateVoter(updatedVoter.id, updatedVoter); // API call
+      await updateVoter(updatedVoter.id, updatedVoter, token); // ✅ pass token if required
       setVoters(voters.map((v) => (v.id === updatedVoter.id ? updatedVoter : v)));
     } catch (error) {
       console.error("Error updating voter:", error);
@@ -52,7 +53,9 @@ const VotersList = () => {
   return (
     <div className="bg-white rounded-xl shadow-md p-6">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-slate-700">{t("voters")} {t("list")}</h1>
+        <h1 className="text-2xl font-bold text-slate-700">
+          {t("voters")} {t("list")}
+        </h1>
         <button
           onClick={() => setShowAddModal(true)}
           className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md"

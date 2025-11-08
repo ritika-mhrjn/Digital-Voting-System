@@ -110,14 +110,15 @@ const Heropg = () => {
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start gap-6 p-4 text-gray-700">
           <div className="flex-1">
             <h2 className="text-xl font-bold text-blue-900 mb-2">{t("NayaMat")}</h2>
-            <p className="text-sm text-gray-600 leading-relaxed max-w-sm">{t("A digital voting system.")}</p>
+            <p className="text-sm text-gray-600 leading-relaxed max-w-sm">{t("nayaMatpart")}</p>
           </div>
 
           <div className="flex-1">
-            <h3 className="text-sm text-blue-800 font-semibold mb-2">{t("Intouch")}</h3>
-            <p className="text-xs mb-1"><span className="font-medium">{t("Email")}:</span> support@nayamat.com</p>
-            <p className="text-xs mb-1"><span className="font-medium">{t("Phone")}:</span> {t("num")}</p>
-            <p className="text-xs"><span className="font-medium">{t("Address")}:</span> {t("add")}</p>
+            <h3 className="text-sm text-blue-800 font-semibold mb-2">{t("intouch")}</h3>
+            <p className="text-xs mb-1">
+              <span className="font-medium">{t("email")}:</span> support@nayamat.com</p>
+            <p className="text-xs mb-1"><span className="font-medium">{t("phone")}:</span> {t("num")}</p>
+            <p className="text-xs"><span className="font-medium">{t("address")}:</span> {t("add")}</p>
           </div>
         </div>
 
