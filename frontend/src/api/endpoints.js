@@ -89,6 +89,26 @@ export const getPosts = async () => {
     throw error;
   }
 };
+// Reactions & comments (used by frontend to persist engagement so AI can pick it up)
+export const addReaction = async (postId, reaction) => {
+  try {
+    const response = await api.post(`/posts/${postId}/reactions`, reaction);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to add reaction:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const addComment = async (postId, comment) => {
+  try {
+    const response = await api.post(`/posts/${postId}/comments`, comment);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to add comment:', error.response?.data || error.message);
+    throw error;
+  }
+};
 export const updatePost = async (postId, postData) => {
   try {
     const response = await api.put(`/posts/${postId}`, postData); // adjust endpoint if needed

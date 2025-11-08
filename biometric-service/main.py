@@ -64,6 +64,12 @@ logger = logging.getLogger("biometric-service")
 # ------------------------------------------------------
 face_service = FaceService()
 
+# Simple in-memory rate limiter for quality-check endpoint (per-IP sliding window)
+from time import time
+_rl_store: dict = {}
+_RL_WINDOW = 60  # seconds
+_RL_LIMIT = 8    # allow 8 requests per window per IP
+
 # ------------------------------------------------------
 # FACE ENDPOINTS
 # ------------------------------------------------------
@@ -111,6 +117,30 @@ async def validate_face(request: FaceValidationRequest):
 @app.post("/api/face/quality-check")
 async def face_quality_check(request: FaceValidationRequest):
     """Strict quality check for enrollment. Returns approved boolean and detailed flags."""
+    # Rate limiting by remote IP to avoid quality-check floods from the frontend
+    try:
+        client_host = None
+        # FastAPI exposes client remote addr on request.scope
+        try:
+            client_host = request.scope.get("client")[0]
+        except Exception:
+            client_host = "unknown"
+
+        now = time()
+        window = _rl_store.setdefault(client_host, [])
+        # drop expired
+        window[:] = [t for t in window if now - t < _RL_WINDOW]
+        if len(window) >= _RL_LIMIT:
+            # Too many requests
+            from fastapi.responses import JSONResponse
+            retry_after = int(_RL_WINDOW - (now - window[0])) if window else _RL_WINDOW
+            return JSONResponse(status_code=429, content={"detail": "Too Many Requests", "retry_after": retry_after})
+        window.append(now)
+
+    except Exception:
+        # if rate-limiter fails, continue to run the check (fail-open)
+        pass
+
     try:
         # Use ImageUtils to robustly decode base64 data URLs or raw base64
         try:
@@ -170,6 +200,26 @@ async def register_face(request: FaceRequest):
         logger.error(f"Face registration failed: {e}")
         raise HTTPException(status_code=400, detail=f"Face registration error: {str(e)}")
 
+
+@app.post("/api/biometrics/face/register-batch", response_model=List[BiometricResponse])
+async def register_face_batch(requests: List[FaceRequest]):
+    """Batch register faces. Useful for bulk uploader in frontend (alias to single register).
+
+    Returns array of BiometricResponse objects corresponding to inputs.
+    """
+    results = []
+    for req in requests:
+        try:
+            # reuse existing register_face logic (call service directly)
+            image_bytes = base64.b64decode(req.image_data.split(",")[1])
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            res = await face_service.register_face(image, req.user_id)
+            results.append(BiometricResponse(success=res.get("success", False), data=res, message=""))
+        except Exception as e:
+            results.append(BiometricResponse(success=False, data=None, message=str(e)))
+    return results
+
 # ------------------------------------------------------
 # FACE VERIFICATION
 # ------------------------------------------------------
@@ -195,6 +245,29 @@ async def verify_face(request: FaceRequest):
     except Exception as e:
         logger.error(f"Face verification failed: {e}")
         raise HTTPException(status_code=400, detail=f"Face verification error: {e}")
+
+
+@app.post("/api/voter/verify-face", response_model=BiometricResponse)
+async def verify_voter_face(request: FaceRequest):
+    """
+    Used during vote registration or authentication to verify live face with stored biometric.
+    """
+    try:
+        logger.info(f"Voter face verification request for user: {request.user_id}")
+
+        image_bytes = base64.b64decode(request.image_data.split(",")[1])
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        result = await face_service.verify_face(image, request.user_id)
+        return BiometricResponse(
+            success=result.get("success", False),
+            data=result,
+            message="✅ Face verified for voter" if result.get("success") else "❌ Verification failed"
+        )
+    except Exception as e:
+        logger.error(f"Voter face verification failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Voter face verification error: {e}")
 
 # ------------------------------------------------------
 # FINGERPRINT REGISTRATION

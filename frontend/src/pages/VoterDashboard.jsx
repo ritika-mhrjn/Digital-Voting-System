@@ -3,7 +3,7 @@ import BiometricChoice from "../components/biometric/BiometricChoice";
 import LivePoll from "../components/LivePoll";
 import { useNavigate } from "react-router-dom";
 import { Camera, LogOut, User, CheckCircle } from "lucide-react";
-import { getPosts, getCandidates, addVoter, getVoterById } from "../api/endpoints"; // ✅ API imports
+import { getPosts, getCandidates, addVoter, getVoterById, addReaction, addComment } from "../api/endpoints"; // ✅ API imports
 
 // --- AUTH CONTEXT ---
 const AuthContext = createContext();
@@ -210,6 +210,7 @@ const FeedPage = () => {
   }, []);
 
   const handleReact = (postId, newReaction) => {
+    // Optimistically update UI
     setPosts((prev) =>
       prev.map((p) => {
         if (p.id === postId) {
@@ -224,12 +225,37 @@ const FeedPage = () => {
         return p;
       })
     );
+
+    // Persist reaction to backend so prediction service sees the change
+    (async () => {
+      try {
+        await addReaction(postId, {
+          user_id: newReaction.userId,
+          type: newReaction.emoji,
+        });
+        // optional: trigger immediate prediction refresh by calling endpoint (LivePoll polls regularly)
+      } catch (err) {
+        console.error('Failed to persist reaction:', err);
+      }
+    })();
   };
 
   const handleComment = (postId, commentObj) => {
     setPosts((prev) =>
       prev.map((p) => (p.id === postId ? { ...p, comments: [...p.comments, commentObj] } : p))
     );
+
+    // Persist comment to backend so prediction service sees the change
+    (async () => {
+      try {
+        await addComment(postId, {
+          user_id: commentObj.userId,
+          text: commentObj.text,
+        });
+      } catch (err) {
+        console.error('Failed to persist comment:', err);
+      }
+    })();
   };
 
   if (!user) return <div className="text-center mt-20">Loading...</div>;

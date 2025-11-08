@@ -27,6 +27,8 @@ const VoterRoutes = require('./routes/voter.js');
 const VoteRoutes = require('./routes/vote.js');
 // Biometric routes (added during integration)
 const biometricRoutes = require('./routes/biometrics.js');
+// Post routes for reactions/comments
+const postRoutes = require('./routes/postRoutes.js');
 
 
 dotenv.config();
@@ -85,6 +87,8 @@ app.use('/api/voters', VoterRoutes);
 app.use('/api/votes', VoteRoutes);
 // Biometric API mount
 app.use('/api/biometrics', biometricRoutes);
+// Post API (reactions/comments)
+app.use('/api/posts', postRoutes);
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));

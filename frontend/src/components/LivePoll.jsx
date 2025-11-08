@@ -88,6 +88,26 @@ export default function LivePoll({ electionId, refreshInterval = 5000, title }) 
           )}
 
           <div className="space-y-3">
+            {/* Winner spotlight */}
+            {sorted.length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-3 flex items-center gap-4">
+                <div className="w-16 h-16 rounded-lg bg-white overflow-hidden flex items-center justify-center">
+                  {sorted[0].photo ? (
+                    <img src={sorted[0].photo} alt={sorted[0].name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-xl font-bold text-yellow-600">{(sorted[0].name || '').charAt(0)}</div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm text-gray-600">Current predicted winner</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-lg font-semibold text-gray-800">{sorted[0].name}</div>
+                    <div className="text-lg font-bold text-yellow-600">{Math.round(sorted[0].predicted_pct || 0)}%</div>
+                  </div>
+                  <div className="text-xs text-gray-500">Updated live as engagement changes</div>
+                </div>
+              </div>
+            )}
             {sorted.map((p, idx) => {
               const pct = Math.max(0, Math.min(100, p.predicted_pct || 0));
               const count = p.votes || p.count || p.raw_score || (totalEstimated ? Math.round((pct / 100) * totalEstimated) : Math.round(pct));
