@@ -1,36 +1,28 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import axios from 'axios';
 import api from '../../api/api';
 import { useAuth } from '../../contexts/AuthContext';
 
-  const QualityIndicator = ({ label, value = 0, threshold = 0.5 }) => {
-  // Normalize value to 0-1 depending on metric
+const QualityIndicator = ({ label, value = 0, threshold = 0.5 }) => {
   const normalize = (lbl, val) => {
     if (val == null || Number.isNaN(val)) return 0;
-    // brightness and contrast are usually 0-1
     if (/brightness/i.test(lbl) || /contrast/i.test(lbl) || /overall/i.test(lbl) || /face size/i.test(lbl)) {
       return Math.max(0, Math.min(1, Number(val)));
     }
-    // sharpness may be a much larger raw number; scale it down to 0-1 using a heuristic
     if (/sharp/i.test(lbl)) {
-      // the backend sometimes returns sharpness as normalized or as a raw variance
       const num = Number(val);
-      // heuristic: treat values around 0-300 as moderate; cap at 800 for normalization
       return Math.max(0, Math.min(1, num / 500));
     }
     return Math.max(0, Math.min(1, Number(val)));
   };
 
   const normalized = normalize(label, value);
-  const percentage = Math.round(normalized * 100 * 10) / 10; // one decimal
+  const percentage = Math.round(normalized * 100 * 10) / 10;
   const isGood = normalized >= threshold;
   const barColor = isGood ? 'var(--color-blackish)' : '#b91c1c';
 
-  // display value formatting (show both normalized percent and raw where helpful)
   let displayValue;
   if (/sharp/i.test(label)) {
-    // show raw and normalized
     displayValue = `${Number(value).toFixed(1)} (${percentage}%)`;
   } else if (/overall/i.test(label)) {
     displayValue = `${percentage}%`;
@@ -63,7 +55,6 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
   const [consentGiven, setConsentGiven] = useState(false);
   const [autoCaptureCountdown, setAutoCaptureCountdown] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
-  const [showQualityMetrics, setShowQualityMetrics] = useState(true);
   const [faceQualityStatus, setFaceQualityStatus] = useState(null);
   const [captureQuality, setCaptureQuality] = useState({
     brightness: 0,
@@ -74,17 +65,16 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
   });
   const [validationDetails, setValidationDetails] = useState(null);
   const [validationMessage, setValidationMessage] = useState('Position your face in the frame');
-  const [photoValidationResults, setPhotoValidationResults] = useState([]); // per-photo validation results
+  const [photoValidationResults, setPhotoValidationResults] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
 
   const videoConstraints = {
-    // use a square viewport for the circular ring UI
     width: 420,
     height: 420,
     facingMode: 'user',
   };
 
-  // Helper: convert various face_position shapes to pixel coords relative to displayed video element.
   const facePositionToPixels = (facePos, videoEl, { mirrored = false } = {}) => {
     if (!facePos || !videoEl) return null;
 
@@ -159,12 +149,10 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
       return null;
     }
 
-    // Flip horizontally for mirrored video
     if (mirrored) {
       left = vw - (left + width);
     }
 
-    // Clamp
     left = Math.max(0, Math.min(left, vw));
     top = Math.max(0, Math.min(top, vh));
     width = Math.max(0, Math.min(width, vw - left));
@@ -173,51 +161,51 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
     return { left, top, width, height };
   };
 
-  // We will allow users to capture photos manually (gallery of captures)
-
   const capture = useCallback(async () => {
     if (!webcamRef.current) return;
     try {
       setIsCapturing(true);
       const imageSrc = webcamRef.current.getScreenshot();
       if (!imageSrc) throw new Error('Failed to capture image');
-      // Reset any previous validation/fix messages so states are mutually exclusive
+
       setValidationDetails(null);
       setValidationMessage(null);
       setFaceQualityStatus(null);
       setPhotoValidationResults([]);
 
-      // Basic face-detection only: call validation endpoint but only use face_detected
       try {
-  const res = await api.post('/biometrics/face/validate', { image: imageSrc }, { headers: { 'Content-Type': 'application/json' } });
+        const res = await api.post(
+          '/biometrics/face/quality-check',
+          { image: imageSrc },
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+
         const payload = res.data || {};
-        const details = payload.details || payload || {};
-        const faceDetected = typeof payload.face_detected !== 'undefined' ? payload.face_detected : (details && typeof details.face_detected !== 'undefined' ? details.face_detected : true);
+        const { passed, message, details } = payload;
 
-        if (faceDetected === false) {
-          // Genuine failure: no face detected
-          setFaceQualityStatus('Face capture failed. Please follow the guidelines and try again.');
-          setValidationMessage('No face detected. Position your face fully inside the box.');
+        if (!passed) {
+          setFaceQualityStatus(`Quality check failed: ${message}`);
+          setValidationMessage(message);
           setValidationDetails(details || null);
-          setPhotoValidationResults(prev => [...(prev || []), { approved: false, details, message: payload?.message || 'No face detected' }]);
-        } else {
-          // Success - accept this capture (limit to 3 photos)
-          setCapturedPhotos(prev => {
-            const next = [...prev];
-            if (next.length < 3) next.push(imageSrc);
-            return next;
-          });
-          const count = Math.min((capturedPhotos.length || 0) + 1, 3);
-          setFaceQualityStatus(`Face captured (${count}/3)`);
-          setPhotoValidationResults(prev => [...(prev || []), { approved: true, details: null, message: 'OK' }]);
+          setPhotoValidationResults(prev => [...(prev || []), { approved: false, details, message }]);
+          setIsCapturing(false);
+          return;
+        }
 
-          // Show ready state when at least one photo captured and an accepted photo exists
-          if ((capturedPhotos.length || 0) + 1 >= 1) {
-            setFaceQualityStatus(`Ready to submit (${Math.min((capturedPhotos.length || 0) + 1,3)}/3)`);
-          }
+        setCapturedPhotos(prev => {
+          const next = [...prev];
+          if (next.length < 3) next.push(imageSrc);
+          return next;
+        });
+
+        const count = Math.min((capturedPhotos.length || 0) + 1, 3);
+        setFaceQualityStatus(`Face captured (${count}/3)`);
+        setPhotoValidationResults(prev => [...(prev || []), { approved: true, details: null, message: 'OK' }]);
+
+        if ((capturedPhotos.length || 0) + 1 >= 1) {
+          setFaceQualityStatus(`Ready to submit (${Math.min((capturedPhotos.length || 0) + 1, 3)}/3)`);
         }
       } catch (valErr) {
-        // If validation service unreachable, accept capture optimistically
         console.warn('Validation service error — accepting capture by default', valErr.message);
         setCapturedPhotos(prev => {
           const next = [...prev];
@@ -228,22 +216,20 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
         setFaceQualityStatus(`Face captured (${count}/3)`);
         setPhotoValidationResults(prev => [...(prev || []), { approved: true, details: null, message: 'OK (offline)' }]);
         if ((capturedPhotos.length || 0) + 1 >= 1) {
-          setFaceQualityStatus(`Ready to submit (${Math.min((capturedPhotos.length || 0) + 1,3)}/3)`);
+          setFaceQualityStatus(`Ready to submit (${Math.min((capturedPhotos.length || 0) + 1, 3)}/3)`);
         }
       }
-
     } catch (err) {
       console.error('Face capture error:', err);
       onError(
         err.response?.data?.message ||
-          'Unable to capture face. Please check camera and try again.'
+        'Unable to capture face. Please check camera and try again.'
       );
     } finally {
       setIsCapturing(false);
     }
-  }, [onCapture, onError, qualityThreshold, user]);
+  }, [capturedPhotos.length, onError]);
 
-  // Lightweight live polling to check if the face is centered — used only to color the guidance circle.
   useEffect(() => {
     if (!cameraReady) return;
     let isCancelled = false;
@@ -265,10 +251,11 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
         if (isCancelled) return;
         const payload = res.data || {};
         const metrics = payload?.details || null;
-        // Keep older captureQuality fields if microsvc returns lighting/metrics
-        if (payload.lighting) setCaptureQuality(prev => ({ ...prev, brightness: payload.lighting.brightness / 255.0, contrast: payload.lighting.contrast / 255.0 }));
-        // Only show a user-facing message when NO face is detected. Avoid 'Fix' guidance in the live UI.
-        const faceDetected = typeof payload.face_detected !== 'undefined' ? payload.face_detected : (metrics && typeof metrics.face_detected !== 'undefined' ? metrics.face_detected : true);
+
+        const faceDetected = typeof payload.face_detected !== 'undefined'
+          ? payload.face_detected
+          : (metrics && typeof metrics.face_detected !== 'undefined' ? metrics.face_detected : true);
+
         setValidationDetails(metrics);
         if (faceDetected === false) {
           setValidationMessage('No face detected. Position your face fully inside the box.');
@@ -298,10 +285,7 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
           setIsCentered(false);
         }
       } catch (err) {
-        if (axios.isCancel && axios.isCancel(err)) {
-          // ignore
-        } else {
-          // network or server error — keep circle neutral
+        if (!(err && err.name === 'AbortError')) {
           setIsCentered(false);
         }
       }
@@ -316,28 +300,7 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
     };
   }, [cameraReady]);
 
-  // show blur-only-if-too-blurry decision helper
-  const isTooBlurry = () => {
-    const sharp = Number(captureQuality?.sharpness || captureQuality?.clarity || 0);
-    // treat sharpness normalized 0..1; if microservice returns other scale the heuristic may need tuning
-    return !Number.isNaN(sharp) && sharp > -1 && sharp < 0.25;
-  };
-
-  function getSpecificGuidance(details = {}) {
-    if (!details) return 'Capture accepted — minor imperfections (lighting, framing) are okay.';
-    if (details.multiple_faces) return 'Multiple faces detected. Make sure only one person is in the frame.';
-    if (details.face_detected === false) return 'No face detected. Position your face fully inside the box.';
-    if (details.no_obstructions === false) return 'Remove masks, scarves, or anything covering your nose or mouth.';
-    if (details.no_glasses === false) return 'Please remove sunglasses or eyewear for registration.';
-    if (details.neutral_expression === false) return 'Maintain a neutral expression — no smiles or pouts.';
-    if (details.proper_lighting === false) return 'Improve lighting on your face (avoid backlight or heavy shadows).';
-    if (details.forward_facing === false) return 'Face slightly turned — please face the camera directly.';
-    // fallback
-    return 'Capture accepted — minor imperfections are okay. If your face is not detected, please re-position.';
-  }
-
   const handleSubmitRegistration = async () => {
-    // Validate every captured photo before submitting
     if (!consentGiven) {
       setFaceQualityStatus('Consent is required to submit');
       return;
@@ -347,60 +310,36 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
       return;
     }
 
-    setFaceQualityStatus('Validating photos...');
-    const results = [];
-    const failures = [];
-    for (let i = 0; i < capturedPhotos.length; i++) {
-      try {
-  const res = await api.post('/biometrics/face/quality-check', { image: capturedPhotos[i] }, { headers: { 'Content-Type': 'application/json' } });
-        const details = res.data?.details || res.data || null;
-        // Relaxed acceptance: accept any capture where a face was detected. If the microservice is unreachable
-        // or returns no details, optimistically accept the capture (so users aren't blocked by minor issues).
-        const faceDetected = typeof res.data?.face_detected !== 'undefined' ? res.data.face_detected : (details && typeof details.face_detected !== 'undefined' ? details.face_detected : true);
-        const blocking = details && (details.mask === true || details.covering === true || details.obstruction === true);
-        const ok = faceDetected && !blocking;
-        results.push({ approved: ok, details, message: res.data?.message || (ok ? 'OK' : 'Accepted (minor issues)') });
-        if (!ok) failures.push({ idx: i, details });
-      } catch (err) {
-        // Accept on offline/errored validation — do not block the flow
-        results.push({ approved: true, details: null, message: 'OK (validation offline)' });
+    setIsSubmitting(true);
+    setFaceQualityStatus('Validating and submitting photos...');
+
+    try {
+      if (onCapture) {
+        await onCapture(capturedPhotos);
       }
+      setFaceQualityStatus('Submitted successfully!');
+    } catch (err) {
+      console.error('Submit error:', err);
+      setFaceQualityStatus('Submit failed: ' + err.message);
+      onError(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // store per-photo validation results so UI can show badges/hints
-    setPhotoValidationResults(results);
-
-    // require at least one face-detected capture (relaxed)
-    const approvedCount = results.filter(r => r.approved).length;
-    if (approvedCount > 0) {
-      setFaceQualityStatus('Validation passed — submitting');
-      onCapture(capturedPhotos);
-      return;
-    }
-
-    // none had a detectable face
-    console.warn('No face-detected photos found during validation', { results });
-    setValidationDetails(results[0]?.details || null);
-    setValidationMessage('No face was detected in your photos. Please retake a photo with your face in the frame.');
-    setFaceQualityStatus('No detectable faces — please retake');
-    return;
   };
 
-  // Auto-capture when centered and held still for 2s
   useEffect(() => {
     if (!isCentered || !cameraReady) {
       setAutoCaptureCountdown(null);
       return;
     }
-  // start countdown if fewer than 3 photos
-  if (capturedPhotos.length >= 3) return;
-    let remaining = 2; // seconds
+    if (capturedPhotos.length >= 3) return;
+
+    let remaining = 2;
     setAutoCaptureCountdown(remaining);
     const iv = setInterval(() => {
       remaining -= 1;
       setAutoCaptureCountdown(remaining > 0 ? remaining : 0);
       if (remaining <= 0) {
-                // perform auto capture
         capture();
         clearInterval(iv);
         setAutoCaptureCountdown(null);
@@ -412,11 +351,7 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
     };
   }, [isCentered, cameraReady, capturedPhotos.length, capture]);
 
-  // computePoseHint removed; manual photo capture flow uses simple instructions
-
   const retake = () => {
-    // Clear current captures and reset metrics/status
-  // clear any temporary single-image state (legacy)
     setCapturedPhotos([]);
     setCaptureQuality({
       brightness: 0,
@@ -433,7 +368,6 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
     const next = [...capturedPhotos];
     next.splice(idx, 1);
     setCapturedPhotos(next);
-    // also remove validation result for that photo if present
     setPhotoValidationResults(prev => {
       const p = [...(prev || [])];
       p.splice(idx, 1);
@@ -448,12 +382,10 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
     onError('Cannot access camera. Please allow permission.');
   };
 
-  // For manual photo capture gallery
   const readyToCapture = cameraReady && !isCapturing && capturedPhotos.length < 3;
 
   return (
     <div className="live-face-capture w-full flex flex-col items-center">
-      {/* Short checklist for users (boxed design) */}
       <div
         className="biometric-checklist w-full max-w-2xl p-6 mb-6 rounded-2xl"
         style={{
@@ -473,9 +405,9 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
           </ol>
         </div>
       </div>
+
       <div className="relative mb-4 flex flex-col items-center">
         <div className="relative" style={{ width: videoConstraints.width, height: videoConstraints.height }}>
-          {/* Webcam: constrained to a square and visually cropped to a circle via borderRadius */}
           <Webcam
             audio={false}
             ref={webcamRef}
@@ -493,7 +425,6 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
             mirrored
           />
 
-          {/* Circular ring overlay (doughnut) to guide face placement */}
           <div
             aria-hidden
             style={{
@@ -521,12 +452,10 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
                 backdropFilter: 'blur(0.2px)'
               }}
             >
-              {/* inner subtle ring to indicate the ideal face area */}
               <div style={{ width: '56%', height: '56%', borderRadius: '50%', border: '2px dashed rgba(255,255,255,0.18)' }} />
             </div>
           </div>
 
-          {/* Instruction overlay for multi-photo capture */}
           <div className="absolute left-0 right-0 bottom-4 flex flex-col items-center pointer-events-none">
             <div className="pose-hint mb-1" style={{ color: 'var(--color-dark)', fontWeight: 600 }}>Take up to 3 photos for registration</div>
             <div className="text-xs" style={{ color: 'var(--color-dark)', opacity: 0.9 }}>
@@ -540,9 +469,8 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
           </div>
         </div>
 
-        {/* Capture controls placed in normal flow directly under the webcam (fixed position) */}
         <div className="mt-3 flex justify-center">
-            <div className="bg-white bg-opacity-80 p-2 rounded-md shadow-sm flex gap-2 items-center">
+          <div className="bg-white bg-opacity-80 p-2 rounded-md shadow-sm flex gap-2 items-center">
             <button
               onClick={capture}
               disabled={isCapturing || !cameraReady || capturedPhotos.length >= 3}
@@ -564,16 +492,16 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
             {capturedPhotos.length >= 1 && (
               <button
                 onClick={handleSubmitRegistration}
-                disabled={!consentGiven}
+                disabled={!consentGiven || isSubmitting}
                 className={`px-3 py-2 rounded-md text-white`}
                 style={{
-                  background: !consentGiven ? '#031129ff' : '#6B7280',
+                  background: !consentGiven || isSubmitting ? '#031129ff' : '#6B7280',
                   border: 'none',
                   opacity: !consentGiven ? 0.6 : 1,
-                  cursor: !consentGiven ? 'not-allowed' : 'pointer'
+                  cursor: !consentGiven || isSubmitting ? 'not-allowed' : 'pointer'
                 }}
               >
-                {consentGiven ? `Submit (${capturedPhotos.length})` : 'Consent required'}
+                {isSubmitting ? 'Submitting...' : (consentGiven ? `Submit (${capturedPhotos.length})` : 'Consent required')}
               </button>
             )}
           </div>
@@ -592,61 +520,58 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
                   >
                     Remove
                   </button>
-                  {/* validation badge */}
                   {photoValidationResults[i] && photoValidationResults[i].approved && (
                     <div style={{ position: 'absolute', left: 6, top: 6 }}>
                       <span style={{ background: '#16a34a', color: '#fff', padding: '2px 6px', borderRadius: 12, fontSize: 12 }}>OK</span>
                     </div>
                   )}
-                  {/* Removed per-photo 'Fix' guidance to avoid alarming messages in the capture UI. */}
                 </div>
               ))}
             </div>
             <div className="text-xs text-gray-600">You can take up to 3 photos. At least one accepted photo is required to submit.</div>
           </div>
         )}
-        {/* Quality metrics and consent */}
-          {/* Compact requirements/status panel (removed large live-quality box) */}
-          <div className="w-full max-w-md mt-4 p-4 rounded-lg shadow-md" style={{ background: '#FADADD', border: '1px solid rgba(0,0,0,0.04)' }}>
-            <div className="mb-2">
-              <div style={{ color: '#9b3740', fontWeight: 700, fontSize: 20 }}>Consent Confirmation</div>
-              <div className="text-xs" style={{ color: '#9b3740', opacity: 0.9 }}>{validationMessage}</div>
-            </div>
 
-            <div className="text-sm mt-1">
-              <label style={{ color: '#5f1f23', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} style={{ marginRight: 8 }} />
-                I consent to processing and storing my biometric template (required to register)
-              </label>
-            </div>
-            {faceQualityStatus && <div className="text-sm mt-3" style={{ color: '#5f1f23' }}>{faceQualityStatus}</div>}
+        <div className="w-full max-w-md mt-4 p-4 rounded-lg shadow-md" style={{ background: '#FADADD', border: '1px solid rgba(0,0,0,0.04)' }}>
+          <div className="mb-2">
+            <div style={{ color: '#9b3740', fontWeight: 700, fontSize: 20 }}>Consent Confirmation</div>
+            <div className="text-xs" style={{ color: '#9b3740', opacity: 0.9 }}>{validationMessage}</div>
           </div>
 
-          {/* Submit area below the requirements box */}
-          <div className="w-full max-w-md mt-4 flex flex-col items-center">
-            <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-              <button
-                onClick={handleSubmitRegistration}
-                disabled={!consentGiven || capturedPhotos.length < 1}
-                className={`px-4 py-2 rounded-md text-white`}
-                style={{
-                  minWidth: 220,
-                  background: (!consentGiven || capturedPhotos.length < 1) ? '#9CA3AF' : '#6B7280',
-                  border: 'none',
-                  opacity: (!consentGiven || capturedPhotos.length < 1) ? 0.6 : 1,
-                  cursor: (!consentGiven || capturedPhotos.length < 1) ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {!consentGiven ? 'Consent required to submit' : (capturedPhotos.length < 1 ? 'Need at least 1 photo to submit' : `Submit (${capturedPhotos.length})`)}
-              </button>
-            </div>
-            <div className="text-xs text-gray-500 mt-2">After submission we will generate and store a secure encrypted template — raw images are not stored.</div>
+          <div className="text-sm mt-1">
+            <label style={{ color: '#5f1f23', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={consentGiven}
+                onChange={(e) => setConsentGiven(e.target.checked)}
+                style={{ marginRight: 8 }}
+              />
+              I consent to processing and storing my biometric template (required to register)
+            </label>
           </div>
+          {faceQualityStatus && <div className="text-sm mt-3" style={{ color: '#5f1f23' }}>{faceQualityStatus}</div>}
+        </div>
+
+        <div className="w-full max-w-md mt-4 flex flex-col items-center">
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={handleSubmitRegistration}
+              disabled={!consentGiven || capturedPhotos.length < 1 || isSubmitting}
+              className={`px-4 py-2 rounded-md text-white`}
+              style={{
+                minWidth: 220,
+                background: (!consentGiven || capturedPhotos.length < 1 || isSubmitting) ? '#9CA3AF' : '#6B7280',
+                border: 'none',
+                opacity: (!consentGiven || capturedPhotos.length < 1) ? 0.6 : 1,
+                cursor: (!consentGiven || capturedPhotos.length < 1) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {isSubmitting ? 'Submitting...' : (!consentGiven ? 'Consent required to submit' : (capturedPhotos.length < 1 ? 'Need at least 1 photo to submit' : `Submit (${capturedPhotos.length})`))}
+            </button>
+          </div>
+          <div className="text-xs text-gray-500 mt-2">After submission we will generate and store a secure encrypted template — raw images are not stored.</div>
+        </div>
       </div>
-
-      {/* Manual photo capture UI: showing thumbnails above; metrics removed in favor of photos */}
-
-          {/* Bottom duplicate capture controls removed to simplify UI per design request */}
     </div>
   );
 };

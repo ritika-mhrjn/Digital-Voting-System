@@ -1,315 +1,199 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, List
-import numpy as np
-import cv2
-import face_recognition
-import base64
-import json
 import logging
-from services.face_service import FaceService
-from utils.quality_check import strict_quality_check
-from utils.image_utils import ImageUtils
+from services.face_service import register_face, verify_face
+from utils.quality_check import perform_quality_check
+from utils.image_utils import decode_base64_image
 
-# ------------------------------------------------------
-# MODELS
-# ------------------------------------------------------
-class BiometricResponse(BaseModel):
-    success: bool
-    data: dict | None = None
-    message: str
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-class FaceValidationRequest(BaseModel):
-    image: str
+app = FastAPI(title="Biometric Service", version="1.0.0")
 
-class FaceValidationResponse(BaseModel):
-    success: bool
-    quality_metrics: dict | None = None
-    error: str | None = None
-    face_detected: bool
-
-class FaceRequest(BaseModel):
-    user_id: str
-    image_data: str  # base64 encoded image
-    # Optional reference encoding (list of floats) to compare against
-    reference_encoding: Optional[List[float]] = None
-
-# FingerprintRequest removed — service operates as face-only
-
-# ------------------------------------------------------
-# APP INITIALIZATION
-# ------------------------------------------------------
-app = FastAPI(title="Biometric Service", version="2.0.0")
-
-# ------------------------------------------------------
-# MIDDLEWARE
-# ------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # you can restrict this later to your frontend domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ------------------------------------------------------
-# LOGGER
-# ------------------------------------------------------
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("biometric-service")
-
-# ------------------------------------------------------
-# SERVICE INITIALIZATION
-# ------------------------------------------------------
-face_service = FaceService()
-
-# Simple in-memory rate limiter for quality-check endpoint (per-IP sliding window)
-from time import time
-_rl_store: dict = {}
-_RL_WINDOW = 60  # seconds
-_RL_LIMIT = 8    # allow 8 requests per window per IP
-
-# ------------------------------------------------------
-# FACE ENDPOINTS
-# ------------------------------------------------------
-@app.post("/api/face/validate", response_model=FaceValidationResponse)
-async def validate_face(request: FaceValidationRequest):
-    try:
-        # Decode base64 image
-        image_data = base64.b64decode(request.image.split(',')[1])
-        nparr = np.frombuffer(image_data, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        if image is None:
-            return FaceValidationResponse(
-                success=False,
-                face_detected=False,
-                error="Invalid image data"
-            )
-        
-        # Analyze image quality and detect face
-        quality_result = await face_service.analyze_face_quality(image)
-        
-        if quality_result.get('error'):
-            return FaceValidationResponse(
-                success=False,
-                face_detected=False,
-                error=quality_result['error'],
-                quality_metrics=quality_result.get('metrics')
-            )
-        
-        return FaceValidationResponse(
-            success=True,
-            face_detected=True,
-            quality_metrics=quality_result['metrics']
-        )
-        
-    except Exception as e:
-        logger.error(f"Face validation error: {str(e)}")
-        return FaceValidationResponse(
-            success=False,
-            face_detected=False,
-            error=str(e)
-        )
-
+@app.get("/health")
+def health_check():
+    """Health check endpoint"""
+    return {"status": "ok", "service": "biometric-service"}
 
 @app.post("/api/face/quality-check")
-async def face_quality_check(request: FaceValidationRequest):
-    """Strict quality check for enrollment. Returns approved boolean and detailed flags."""
-    # Rate limiting by remote IP to avoid quality-check floods from the frontend
-    try:
-        client_host = None
-        # FastAPI exposes client remote addr on request.scope
-        try:
-            client_host = request.scope.get("client")[0]
-        except Exception:
-            client_host = "unknown"
-
-        now = time()
-        window = _rl_store.setdefault(client_host, [])
-        # drop expired
-        window[:] = [t for t in window if now - t < _RL_WINDOW]
-        if len(window) >= _RL_LIMIT:
-            # Too many requests
-            from fastapi.responses import JSONResponse
-            retry_after = int(_RL_WINDOW - (now - window[0])) if window else _RL_WINDOW
-            return JSONResponse(status_code=429, content={"detail": "Too Many Requests", "retry_after": retry_after})
-        window.append(now)
-
-    except Exception:
-        # if rate-limiter fails, continue to run the check (fail-open)
-        pass
-
-    try:
-        # Use ImageUtils to robustly decode base64 data URLs or raw base64
-        try:
-            image = ImageUtils.base64_to_image(request.image)
-        except Exception:
-            # Fallback: try older manual decode path (legacy callers may send bare base64)
-            try:
-                image_data = base64.b64decode(request.image.split(',')[1])
-                nparr = np.frombuffer(image_data, np.uint8)
-                image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            except Exception:
-                image = None
-
-        if image is None:
-            return { 'approved': False, 'message': 'Invalid image data', 'details': { 'face_detected': False } }
-
-        # Use standalone strict_quality_check utility (synchronous)
-        result = strict_quality_check(image)
-        return result
-    except Exception as e:
-        logger.error(f"Strict quality check error: {e}")
-        return { 'approved': False, 'message': str(e), 'details': {} }
-
-
-# Alias route kept for backwards compatibility (some callers use /api/biometrics/...)
-@app.post("/api/biometrics/face/quality-check")
-async def face_quality_check_alias(request: FaceValidationRequest):
-    """Alias endpoint that delegates to the strict quality check handler."""
-    return await face_quality_check(request)
-
-# ------------------------------------------------------
-# FACE REGISTRATION
-# ------------------------------------------------------
-@app.post("/api/biometrics/face/register", response_model=BiometricResponse)
-async def register_face(request: FaceRequest):
+def quality_check_endpoint(image: str = Body(..., embed=True)):
     """
-    Register a user's face template for later verification.
+    Perform strict quality check on a face image.
+    Returns: { passed: bool, message: str, details: dict }
     """
     try:
-        logger.info(f"Face registration request for user: {request.user_id}")
+        if not image:
+            return {
+                "passed": False,
+                "message": "No image data provided",
+                "details": None
+            }
         
-        # Convert base64 image to numpy array
-        image_bytes = base64.b64decode(request.image_data.split(",")[1])
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        # Register face using face service
-        result = await face_service.register_face(image, request.user_id)
-
-        return BiometricResponse(
-            success=True,
-            data=result,
-            message="✅ Face registered successfully"
-        )
-        
-    except Exception as e:
-        logger.error(f"Face registration failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Face registration error: {str(e)}")
-
-
-@app.post("/api/biometrics/face/register-batch", response_model=List[BiometricResponse])
-async def register_face_batch(requests: List[FaceRequest]):
-    """Batch register faces. Useful for bulk uploader in frontend (alias to single register).
-
-    Returns array of BiometricResponse objects corresponding to inputs.
-    """
-    results = []
-    for req in requests:
+        # Decode image
         try:
-            # reuse existing register_face logic (call service directly)
-            image_bytes = base64.b64decode(req.image_data.split(",")[1])
-            nparr = np.frombuffer(image_bytes, np.uint8)
-            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            res = await face_service.register_face(image, req.user_id)
-            results.append(BiometricResponse(success=res.get("success", False), data=res, message=""))
+            img = decode_base64_image(image)
         except Exception as e:
-            results.append(BiometricResponse(success=False, data=None, message=str(e)))
-    return results
+            logger.error(f"Image decode error: {str(e)}")
+            return {
+                "passed": False,
+                "message": "Invalid image format",
+                "details": None
+            }
+        
+        # Perform quality check
+        result = perform_quality_check(img)
+        
+        return {
+            "passed": result.get("passed", False),
+            "message": result.get("message", "Quality check complete"),
+            "details": result.get("details", {}),
+            "face_detected": result.get("face_detected", False)
+        }
+    except Exception as e:
+        logger.error(f"Quality check error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# ------------------------------------------------------
-# FACE VERIFICATION
-# ------------------------------------------------------
-@app.post("/api/biometrics/face/verify", response_model=BiometricResponse)
-async def verify_face(request: FaceRequest):
+@app.post("/api/face/register")
+def register_endpoint(user_id: str = Body(..., embed=True), image_data: str = Body(..., embed=True)):
     """
-    Verify user's identity by comparing live face capture with stored embedding.
+    Register a face for a user.
+    Returns: { success: bool, face_id: str, encoding: list, message: str }
     """
     try:
-        logger.info(f"Verifying face for user: {request.user_id}")
-
-        image_bytes = base64.b64decode(request.image_data.split(",")[1])
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        # Pass optional reference encoding when provided to prefer direct comparison
-        result = await face_service.verify_face(image, request.user_id, reference_encoding=getattr(request, 'reference_encoding', None))
-        return BiometricResponse(
-            success=result.get("success", False),
-            data=result,
-            message="✅ Face verified successfully" if result.get("success") else "❌ Face verification failed"
-        )
+        if not user_id or not image_data:
+            return {
+                "success": False,
+                "message": "Missing user_id or image_data",
+                "face_id": None,
+                "encoding": None
+            }
+        
+        # Decode image
+        try:
+            img = decode_base64_image(image_data)
+        except Exception as e:
+            logger.error(f"Image decode error: {str(e)}")
+            return {
+                "success": False,
+                "message": "Invalid image format",
+                "face_id": None,
+                "encoding": None
+            }
+        
+        # Register face
+        result = register_face(user_id, img)
+        
+        return {
+            "success": result.get("success", False),
+            "message": result.get("message", "Registration complete"),
+            "face_id": result.get("face_id"),
+            "encoding": result.get("encoding"),
+            "data": result
+        }
     except Exception as e:
-        logger.error(f"Face verification failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Face verification error: {e}")
+        logger.error(f"Registration error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/api/voter/verify-face", response_model=BiometricResponse)
-async def verify_voter_face(request: FaceRequest):
+@app.post("/api/face/verify")
+def verify_endpoint(user_id: str = Body(..., embed=True), image_data: str = Body(..., embed=True), reference_encoding: list = Body(None, embed=True)):
     """
-    Used during vote registration or authentication to verify live face with stored biometric.
+    Verify a face against a stored template.
+    Returns: { verified: bool, confidence: float, message: str }
     """
     try:
-        logger.info(f"Voter face verification request for user: {request.user_id}")
-
-        image_bytes = base64.b64decode(request.image_data.split(",")[1])
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        result = await face_service.verify_face(image, request.user_id)
-        return BiometricResponse(
-            success=result.get("success", False),
-            data=result,
-            message="✅ Face verified for voter" if result.get("success") else "❌ Verification failed"
-        )
+        if not user_id or not image_data:
+            return {
+                "verified": False,
+                "message": "Missing user_id or image_data",
+                "confidence": 0
+            }
+        
+        # Decode image
+        try:
+            img = decode_base64_image(image_data)
+        except Exception as e:
+            logger.error(f"Image decode error: {str(e)}")
+            return {
+                "verified": False,
+                "message": "Invalid image format",
+                "confidence": 0
+            }
+        
+        # Verify face
+        result = verify_face(user_id, img, reference_encoding)
+        
+        return {
+            "verified": result.get("verified", False),
+            "message": result.get("message", "Verification complete"),
+            "confidence": result.get("confidence", 0),
+            "data": result
+        }
     except Exception as e:
-        logger.error(f"Voter face verification failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Voter face verification error: {e}")
+        logger.error(f"Verification error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# ------------------------------------------------------
-# FINGERPRINT REGISTRATION
-# ------------------------------------------------------
-# ------------------------------------------------------
-# FINGERPRINT VERIFICATION
-# ------------------------------------------------------
-# Fingerprint endpoints removed — service is face-only
+@app.post("/api/face/validate")
+def validate_endpoint(image: str = Body(..., embed=True)):
+    """
+    Validate face presence and basic quality.
+    Returns: { success: bool, face_detected: bool, details: dict }
+    """
+    try:
+        if not image:
+            return {
+                "success": False,
+                "face_detected": False,
+                "details": None,
+                "message": "No image data"
+            }
+        
+        # Decode image
+        try:
+            img = decode_base64_image(image)
+        except Exception as e:
+            logger.error(f"Image decode error: {str(e)}")
+            return {
+                "success": False,
+                "face_detected": False,
+                "details": None,
+                "message": "Invalid image format"
+            }
+        
+        # Perform quality check
+        result = perform_quality_check(img)
+        
+        return {
+            "success": result.get("face_detected", False),
+            "face_detected": result.get("face_detected", False),
+            "details": result.get("details", {}),
+            "message": result.get("message", "Validation complete")
+        }
+    except Exception as e:
+        logger.error(f"Validation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# ------------------------------------------------------
-# HEALTH CHECK ENDPOINT
-# ------------------------------------------------------
-@app.get("/api/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": "biometric",
-        "version": "2.0.0"
-    }
+@app.get("/api/biometrics/face/exists/{user_id}")
+def face_exists_endpoint(user_id: str):
+    """
+    Check if a face template exists for a user.
+    Returns: { exists: bool }
+    """
+    try:
+        from services.database import face_exists
+        exists = face_exists(user_id)
+        return {"exists": exists}
+    except Exception as e:
+        logger.error(f"Face exists check error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Face exists check failed: {str(e)}")
 
-# ------------------------------------------------------
-# ROOT (INFO)
-# ------------------------------------------------------
-@app.get("/")
-async def root_info():
-    return {
-        "service": "Biometric Authentication API",
-        "description": "Face recognition service (fingerprint support removed)",
-        "endpoints": [
-            "/api/face/validate",
-            "/api/biometrics/face/register",
-            "/api/biometrics/face/verify",
-            "/api/health"
-        ]
-    }
-
-# ------------------------------------------------------
-# MAIN ENTRY
-# ------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
-    # Run biometric service on 8000 by default (backend proxies to this URL)
-    PORT = 8000
-    logger.info(f"🚀 Starting Biometric Service on port {PORT}...")
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

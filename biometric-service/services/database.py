@@ -1,111 +1,130 @@
 from pymongo import MongoClient
 from cryptography.fernet import Fernet
 import os
-import json
-import numpy as np
-from datetime import datetime
 import logging
+import json
 
-logger = logging.getLogger("biometric-db")
+logger = logging.getLogger(__name__)
 
-# Configuration (env-friendly)
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-DB_NAME = os.getenv("DB_NAME", "NayaMatDb")
+# MongoDB connection
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "electoral_system")
 
 try:
     client = MongoClient(MONGO_URI)
-    db = client[DB_NAME]
+    db = client[DATABASE_NAME]
     faces_collection = db["faces"]
+    logger.info("Connected to MongoDB")
 except Exception as e:
-    # Defer connection errors to runtime operations
-    client = None
-    db = None
-    faces_collection = None
-    logger.warning(f"Could not create Mongo client: {e}")
+    logger.error(f"MongoDB connection failed: {str(e)}")
+    raise
 
-# Fernet key for encrypting encodings. Provide FERNET_KEY as base64-encoded 32-byte key.
-FERNET_KEY = os.getenv("FERNET_KEY")
-if not FERNET_KEY:
-    # Generate a throwaway key for local development (logged at debug level only)
-    FERNET_KEY = Fernet.generate_key().decode()
-    logger.debug("Generated temporary FERNET_KEY for local use")
+# Encryption key for storing face encodings
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "your-secret-key-here").encode()
+cipher_suite = Fernet(ENCRYPTION_KEY if len(ENCRYPTION_KEY) == 44 else Fernet.generate_key())
 
-fernet = Fernet(FERNET_KEY.encode())
-
-
-def _ensure_collection():
-    if faces_collection is None:
-        raise RuntimeError("MongoDB client not initialized. Check MONGO_URI and that Mongo is running.")
-
-
-def encrypt_encoding(encoding: np.ndarray) -> bytes:
-    """Encrypt a numpy encoding (1D array) and return bytes."""
+def encrypt_encoding(encoding):
+    """Encrypt a face encoding before storing"""
     try:
-        arr = np.asarray(encoding).tolist()
-        raw = json.dumps(arr).encode()
-        return fernet.encrypt(raw)
+        encoding_str = json.dumps(encoding)
+        encrypted = cipher_suite.encrypt(encoding_str.encode())
+        return encrypted.decode()
     except Exception as e:
-        logger.exception("Failed to encrypt encoding")
-        raise
+        logger.error(f"Encryption error: {str(e)}")
+        return None
 
-
-def decrypt_encoding(encrypted: bytes) -> np.ndarray:
-    """Decrypt bytes back into a numpy array."""
+def decrypt_encoding(encrypted_encoding):
+    """Decrypt a stored face encoding"""
     try:
-        raw = fernet.decrypt(encrypted)
-        arr = json.loads(raw.decode())
-        return np.asarray(arr, dtype=float)
+        decrypted = cipher_suite.decrypt(encrypted_encoding.encode())
+        encoding = json.loads(decrypted.decode())
+        return encoding
     except Exception as e:
-        logger.exception("Failed to decrypt encoding")
-        raise
+        logger.error(f"Decryption error: {str(e)}")
+        return None
 
-
-def save_face_encoding(user_id: str, encoding: np.ndarray, metrics: dict) -> bool:
-    """Save (upsert) encrypted face encoding and metadata into MongoDB.
-
-    Returns True on success, raises on error.
+def save_face_encoding(user_id: str, face_id: str, encoding):
     """
-    _ensure_collection()
+    Save a face encoding to the database.
+    """
     try:
-        enc_blob = encrypt_encoding(encoding)
+        encrypted_encoding = encrypt_encoding(encoding)
+        
         doc = {
             "user_id": str(user_id),
-            "encoding": enc_blob,
-            "metrics": metrics if metrics is not None else {},
-            "updated_at": datetime.utcnow().isoformat(),
+            "face_id": str(face_id),
+            "encoding": encrypted_encoding,
+            "enrolled_at": __import__('datetime').datetime.utcnow()
         }
-        faces_collection.update_one({"user_id": str(user_id)}, {"$set": doc}, upsert=True)
-        logger.info(f"Saved face encoding for user {user_id} to MongoDB")
-        return True
-    except Exception:
-        logger.exception("Failed to save face encoding to MongoDB")
+        
+        result = faces_collection.insert_one(doc)
+        logger.info(f"Face saved for user {user_id} with ID {result.inserted_id}")
+        return str(result.inserted_id)
+    except Exception as e:
+        logger.error(f"Save face encoding error: {str(e)}")
         raise
-
 
 def get_face_encoding(user_id: str):
-    """Retrieve and decrypt a face encoding for a user, or return None if not found."""
-    _ensure_collection()
+    """
+    Retrieve the most recent face encoding for a user.
+    """
+    try:
+        doc = faces_collection.find_one(
+            {"user_id": str(user_id)},
+            sort=[("enrolled_at", -1)]
+        )
+        
+        if doc:
+            encrypted = doc.get("encoding")
+            if encrypted:
+                encoding = decrypt_encoding(encrypted)
+                return encoding
+        
+        logger.warning(f"No face encoding found for user {user_id}")
+        return None
+    except Exception as e:
+        logger.error(f"Get face encoding error: {str(e)}")
+        return None
+
+def face_exists(user_id: str) -> bool:
+    """
+    Check if a face encoding exists for a user.
+    """
     try:
         doc = faces_collection.find_one({"user_id": str(user_id)})
-        if not doc:
-            return None
-        enc = doc.get("encoding")
-        if not enc:
-            return None
-        # pymongo returns Binary type which is bytes-like
-        arr = decrypt_encoding(enc)
-        return arr
-    except Exception:
-        logger.exception("Failed to load face encoding from MongoDB")
-        raise
+        return doc is not None
+    except Exception as e:
+        logger.error(f"Face exists check error: {str(e)}")
+        return False
 
-
-def delete_face_encoding(user_id: str) -> bool:
-    """Delete stored encoding for a user (cleanup helper)."""
-    _ensure_collection()
+def delete_face_encoding(user_id: str):
+    """
+    Delete all face encodings for a user.
+    """
     try:
-        res = faces_collection.delete_one({"user_id": str(user_id)})
-        return res.deleted_count > 0
-    except Exception:
-        logger.exception("Failed to delete face encoding")
+        result = faces_collection.delete_many({"user_id": str(user_id)})
+        logger.info(f"Deleted {result.deleted_count} face encoding(s) for user {user_id}")
+        return result.deleted_count
+    except Exception as e:
+        logger.error(f"Delete face encoding error: {str(e)}")
         raise
+
+def get_all_encodings_for_user(user_id: str):
+    """
+    Retrieve all face encodings for a user (for batch verification).
+    """
+    try:
+        docs = list(faces_collection.find({"user_id": str(user_id)}))
+        encodings = []
+        for doc in docs:
+            encrypted = doc.get("encoding")
+            if encrypted:
+                encoding = decrypt_encoding(encrypted)
+                if encoding:
+                    encodings.append(encoding)
+        
+        logger.info(f"Retrieved {len(encodings)} face encoding(s) for user {user_id}")
+        return encodings
+    except Exception as e:
+        logger.error(f"Get all encodings error: {str(e)}")
+        return []

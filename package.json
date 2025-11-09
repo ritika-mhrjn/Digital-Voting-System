@@ -6,8 +6,13 @@
     "start:all": "concurrently \"cd backend && npm run dev\" \"cd ai-prediction && uvicorn app:app --reload --port 8000\" \"cd frontend && npm run dev\""
   },
   "dependencies": {
+    "axios": "^1.13.2",
+    "bcryptjs": "^3.0.3",
+    "canvas": "^3.2.0",
     "concurrently": "^8.2.0",
     "csv-parse": "^6.1.0",
+    "express": "^5.1.0",
+    "face-api.js": "^0.22.2",
     "mongodb": "^6.20.0",
     "mongoose": "^8.19.3",
     "multer": "^2.0.2"

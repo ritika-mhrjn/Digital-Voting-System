@@ -1,9 +1,13 @@
 const express = require('express');
+const axios = require('axios');
 const generateToken = require('../utils/generateToken.js');
 const User = require('../models/User.js');
 const Voter = require('../models/Voter.js');
 
 const router = express.Router();
+
+const BIOMETRIC_SERVICE_URL = process.env.BIOMETRIC_SERVICE_URL || 'http://localhost:8000';
+const BIOMETRIC_CHECK_TIMEOUT = parseInt(process.env.BIOMETRIC_CHECK_TIMEOUT_MS, 10) || 5000;
 
 /**
  * @route   POST /api/auth/register
@@ -36,20 +40,44 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
+    // DEBUG: show normalized inputs
+    console.debug('[auth.register] normalized inputs', { emailNorm, voterIdNorm, idNumberNorm });
+
     // Find registry entry (prefer voterId, fallback to nationalId)
     const registry = await Voter.findOne({
       $or: [{ voterId: voterIdNorm }, { nationalId: idNumberNorm }],
     });
+    console.debug('[auth.register] registry lookup result', { registryFound: !!registry, registryId: registry?._id });
+
     if (!registry) {
       return res.status(400).json({ success: false, message: 'Voter not found in the official registry' });
     }
 
-    // FIX: if registry.hasRegistered is true -> already registered
+    // Prevent duplicate registry entry
     if (registry.hasRegistered) {
       return res.status(400).json({ success: false, message: 'This Voter ID is already registered.' });
     }
 
-    // Prevent duplicate registration (case-insensitive email + id)
+    // Ensure biometric enrollment exists for this voterId before allowing registration
+    try {
+      const resp = await axios.get(`${BIOMETRIC_SERVICE_URL}/api/biometrics/face/exists/${encodeURIComponent(voterIdNorm)}`, {
+        timeout: BIOMETRIC_CHECK_TIMEOUT,
+        validateStatus: (s) => s >= 200 && s < 500,
+      });
+
+      if (!resp || typeof resp.data === 'undefined') {
+        return res.status(502).json({ success: false, message: 'Unable to verify biometric enrollment (no response from biometric service)' });
+      }
+
+      if (!resp.data.exists) {
+        return res.status(400).json({ success: false, message: 'Face validation required before registration. Please complete face verification first.' });
+      }
+    } catch (err) {
+      console.error('Biometric check failed during registration:', err.message || err);
+      return res.status(502).json({ success: false, message: 'Failed to verify biometric enrollment. Try again later.' });
+    }
+
+    // Prevent duplicate user in users collection
     const userExists = await User.findOne({
       $or: [{ email: emailNorm }, { voterId: voterIdNorm }, { idNumber: idNumberNorm }],
     });
@@ -85,7 +113,6 @@ router.post('/register', async (req, res) => {
       data: { id: user._id, fullName: user.fullName, email: user.email, voterId: user.voterId },
     });
   } catch (err) {
-    // Handle duplicate key error explicitly
     if (err && err.code === 11000) {
       const dupField = Object.keys(err.keyValue || {})[0] || 'field';
       return res.status(409).json({ success: false, message: `Duplicate value for ${dupField}`, data: err.message });
@@ -105,7 +132,6 @@ router.post('/login', async (req, res) => {
     const emailNorm = String(req.body.email || '').toLowerCase().trim();
     const { password } = req.body;
 
-    // Include password even if select:false in schema
     const user = await User.findOne({ email: emailNorm }).select('+password');
     if (!user) {
       return res.status(400).json({
@@ -122,7 +148,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Block login until committee verifies
     if (!user.isVerified) {
       return res.status(403).json({
         success: false,
@@ -153,5 +178,4 @@ router.post('/login', async (req, res) => {
   }
 });
 
-
-module.exports= router;
+module.exports = router;
