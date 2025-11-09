@@ -2,3 +2,8 @@ backend/.env
 .env
 .env
 node_modules
+mongodb-data/
+data/
+*.wt
+WiredTiger*
+journal/
