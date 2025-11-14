@@ -3,7 +3,7 @@
 const mongoose=require('mongoose');
 const bcrypt=require('bcryptjs');
 
-const ROLES = ['voter', 'admin', 'committee', 'candidate'];
+const ROLES = ['voter', 'admin', 'electoral_committee', 'candidate'];
 const reqIfVoter = function () { return this.role === 'voter' || this.role=== 'candidate'; };
 
 const userSchema = new mongoose.Schema(

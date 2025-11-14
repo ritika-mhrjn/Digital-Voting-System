@@ -1,15 +1,24 @@
-const express = require('express');
-const { castVote, getLeaderboard } = require('../controllers/voteController.js');
-const { protect, requireVerified } = require('../middleware/authMiddleware.js');
-const Vote = require('../models/Vote.js');
+const express = require("express");
+const {
+  castVote,
+  getLeaderboard,
+} = require("../controllers/voteController.js");
+const { protect, requireVerified } = require("../middleware/authMiddleware.js");
+const Vote = require("../models/Vote.js");
+
 const router = express.Router();
 
+/**
+ * VOTE ROUTES
+ * Base path: /api/votes
+ */
 
+// 🗳 Get all votes (admin or committee only ideally)
 router.get("/", protect, async (req, res) => {
   try {
     const votes = await Vote.find()
-      .populate("voter", "fullname email")
-      .populate("candidate", "name party")
+      .populate("voter", "fullName email role")
+      .populate("candidate", "fullName party role")
       .populate("election", "title status")
       .lean();
 
@@ -20,13 +29,10 @@ router.get("/", protect, async (req, res) => {
   }
 });
 
-// Cast a vote — only logged-in users
-router.post("/cast", protect, castVote);
+// 🗳 Cast a vote — only verified and logged-in users
+router.post("/cast", protect, requireVerified, castVote);
 
-// Only verified voter can access this
-router.post('/', protect, requireVerified, castVote);
-
-// Get election leaderboard — public
+// 📊 Get election leaderboard — public
 router.get("/leaderboard/:electionId", getLeaderboard);
 
-module.exports= router;
+module.exports = router;

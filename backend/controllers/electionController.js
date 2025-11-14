@@ -156,7 +156,32 @@ const getElectionById = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
+async function updateElection(req, res) {
+  try {
+    const { id } = req.params;
+    const updated = await Election.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    if (!updated) return res.status(404).json({ error: "Election not found" });
+    res.json({ message: "Election updated successfully", election: updated });
+  } catch (err) {
+    console.error("Error updating election:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
 
+async function deleteElection(req, res) {
+  try {
+    const { id } = req.params;
+    const deleted = await Election.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ error: "Election not found" });
+    res.json({ message: "Election deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting election:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
 /**
  * PATCH /api/election/:id/end
  * Ends an election immediately (admin/committee)
@@ -187,10 +212,11 @@ const endElection = async (req, res) => {
 };
 
 // --- CommonJS Export ---
-
 module.exports = {
   createElection,
   getElections,
   getElectionById,
+  updateElection,
+  deleteElection,
   endElection,
 };

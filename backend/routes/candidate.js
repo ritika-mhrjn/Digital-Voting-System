@@ -1,19 +1,33 @@
-const express = require('express');
+const express = require("express");
 const {
   addCandidate,
   getAllCandidates,
   getCandidateById,
   updateCandidate,
   deleteCandidate,
-} = require('../controllers/candidateController.js');
+} = require("../controllers/candidateController.js");
+const { protect, committeeOrAdmin } = require("../middleware/authMiddleware.js");
 
 const router = express.Router();
 
-// Routes
-router.post('/add', addCandidate);          // POST /api/candidates/add
-router.get('/', getAllCandidates);          // GET /api/candidates
-router.get('/:id', getCandidateById);       // GET /api/candidates/:id
-router.put('/:id', updateCandidate);        // PUT /api/candidates/:id
-router.delete('/:id', deleteCandidate);     // DELETE /api/candidates/:id
+/**
+ * CANDIDATE ROUTES
+ * Base path: /api/candidates
+ */
 
-module.exports= router;
+// Add new candidate (only admin or committee)
+router.post("/add", protect, committeeOrAdmin, addCandidate);
+
+//  Get all candidates (public access)
+router.get("/", getAllCandidates);
+
+// Get candidate by ID (public access)
+router.get("/:id", getCandidateById);
+
+//  Update candidate (admin or committee only)
+router.put("/:id", protect, committeeOrAdmin, updateCandidate);
+
+//  Delete candidate (admin or committee only)
+router.delete("/:id", protect, committeeOrAdmin, deleteCandidate);
+
+module.exports = router;

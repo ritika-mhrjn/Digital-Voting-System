@@ -94,7 +94,7 @@ const Registration = () => {
         province: formData.province,
         district: formData.district,
         ward: formData.ward,
-        biometricData
+        // biometricData
       };
 
       // Register user
@@ -102,22 +102,22 @@ const Registration = () => {
       console.log("User registered successfully:", response);
 
       // Post-registration: upload face images if provided
-      const userId = response?.data?.id || response?.data?._id || response?.id || null;
-      if (userId && biometricData) {
-        const API_BASE = import.meta.env.VITE_API_URL || '';
-        const images = Array.isArray(biometricData.data) ? biometricData.data : [biometricData.data];
+      // const userId = response?.data?.id || response?.data?._id || response?.id || null;
+      // if (userId && biometricData) {
+      //   const API_BASE = import.meta.env.VITE_API_URL || '';
+      //   const images = Array.isArray(biometricData.data) ? biometricData.data : [biometricData.data];
 
-        await fetch(`${API_BASE}/api/biometrics/face/register-batch`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, images, consent: true }),
-        })
-        .then(res => res.json())
-        .then(r => {
-          if (!r || !r.success) console.warn('Biometric register-batch returned error', r);
-        })
-        .catch(err => console.warn('Post-registration biometric upload failed', err));
-      }
+      //   await fetch(`${API_BASE}/api/biometrics/face/register-batch`, {
+      //     method: 'POST',
+      //     headers: { 'Content-Type': 'application/json' },
+      //     body: JSON.stringify({ userId, images, consent: true }),
+      //   })
+      //   .then(res => res.json())
+      //   .then(r => {
+      //     if (!r || !r.success) console.warn('Biometric register-batch returned error', r);
+      //   })
+      //   .catch(err => console.warn('Post-registration biometric upload failed', err));
+      // }
 
       alert(t("registrationSuccess") || "Registration successful!");
       navigate("/login");

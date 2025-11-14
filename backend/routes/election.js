@@ -1,28 +1,55 @@
-const express = require('express');
+const express = require("express");
 const {
   createElection,
   getElections,
   getElectionById,
+  updateElection,
+  deleteElection,
   endElection,
-} = require('../controllers/electionController.js');
-const { protect, adminOnly } = require('../middleware/authMiddleware.js');
-const { roleMiddleware } = require('../middleware/roleMiddleware.js');
+} = require("../controllers/electionController.js");
+const { protect } = require("../middleware/authMiddleware.js");
+const { roleMiddleware } = require("../middleware/roleMiddleware.js");
 
 const router = express.Router();
 
-// --- Election Routes ---
+/**
+ * ELECTION ROUTES
+ * Base path: /api/elections
+ */
 
-// Create new election — requires protection and 'admin' role
-router.post("/create", protect, roleMiddleware(["admin", "committee"]), createElection);
+router.post(
+  "/create",
+  protect,
+  roleMiddleware(["admin", "electoral_committee"]),
+  createElection
+);
 
-// Get all elections — public access
+
 router.get("/", getElections);
 
-// Get one election by ID — public access
+
 router.get("/:id", getElectionById);
 
-// End an election — requires protection and 'admin' role
-router.put("/:id/end", protect, roleMiddleware(["admin", "committee"]), endElection);
 
-// Export the router for use in server.js or main app file
+router.put(
+  "/:id",
+  protect,
+  roleMiddleware(["admin", "electoral_committee"]),
+  updateElection
+);
+
+router.delete(
+  "/:id",
+  protect,
+  roleMiddleware(["admin", "electoral_committee"]),
+  deleteElection
+);
+
+router.put(
+  "/:id/end",
+  protect,
+  roleMiddleware(["admin", "electoral_committee"]),
+  endElection
+);
+
 module.exports = router;

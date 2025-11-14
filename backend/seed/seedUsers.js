@@ -6,7 +6,7 @@ let Imported = require('../models/User');
 const User = Imported?.default || Imported?.User || Imported;
 
 if (!User || typeof User.findOne !== 'function') {
-  console.error('❌ ../models/User did not export a Mongoose model. Got:', Imported);
+  console.error('../models/User did not export a Mongoose model. Got:', Imported);
   process.exit(1);
 }
 
@@ -17,15 +17,15 @@ const dbName = process.env.MONGODB_DB || undefined;
 async function upsertUser({ fullName, email, password, role, phone }) {
   const existing = await User.findOne({ email }).select('_id role').lean();
   if (existing) {
-    console.log(`✔ Exists: ${email} (role: ${existing.role})`);
+    console.log(` Exists: ${email} (role: ${existing.role})`);
     return;
   }
   const u = new User({ fullName, email, password, role, phone });
   try {
     await u.save();
-    console.log(`➕ Created: ${email} (role: ${role})`);
+    console.log(`Created: ${email} (role: ${role})`);
   } catch (err) {
-    console.error(`❌ Failed to create ${email}:`, err?.message || err);
+    console.error(`Failed to create ${email}:`, err?.message || err);
     throw err;
   }
 }
@@ -57,7 +57,7 @@ async function upsertUser({ fullName, email, password, role, phone }) {
       fullName: 'Electoral Committee',
       email: 'committee@dvs.local',
       password: 'ChangeMeCommittee#1',
-      role: 'committee',
+      role: 'electoral_committee',
       phone: '9800000001'
     });
 

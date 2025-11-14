@@ -1,13 +1,15 @@
-const express = require('express');
-const { getPrediction, predictPublic } = require('../controllers/predictionController.js');
-const { protect, adminOnly } = require('../middleware/authMiddleware.js');
+// backend/routes/prediction.js
+const express = require("express");
+const { getPublicPrediction } = require("../controllers/predictionController.js");
+const { protect, committeeOrAdmin } = require("../middleware/authMiddleware.js"); 
 
 const router = express.Router();
 
-// Public polling endpoint used by frontend LivePoll component
-router.get('/public/:electionId', predictPublic);
+// Public endpoint: GET /api/prediction/public/:electionId
+router.get("/public/:electionId", getPublicPrediction);
 
-// Admin endpoint (protected) - can be used by admin UI to request model-based prediction
-router.get('/:electionId', protect, adminOnly, getPrediction);
+// Admin/Committee endpoint: GET /api/prediction/:electionId
+// (secured; useful if you later want richer/private outputs)
+router.get("/:electionId", protect, committeeOrAdmin, getPublicPrediction);
 
 module.exports = router;

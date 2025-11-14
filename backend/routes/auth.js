@@ -1,8 +1,10 @@
-const express = require('express');
+const express = require("express");
 const axios = require('axios');
-const generateToken = require('../utils/generateToken.js');
-const User = require('../models/User.js');
-const Voter = require('../models/Voter.js');
+const generateToken = require("../utils/generateToken.js");
+const User = require("../models/User.js");
+const Voter = require("../models/Voter.js");
+const { protect } = require("../middleware/authMiddleware.js");
+const { roleMiddleware } = require("../middleware/roleMiddleware.js");
 
 const router = express.Router();
 
@@ -12,9 +14,9 @@ const BIOMETRIC_CHECK_TIMEOUT = parseInt(process.env.BIOMETRIC_CHECK_TIMEOUT_MS,
 /**
  * @route   POST /api/auth/register
  * @desc    Register user (pending until committee verifies)
- * @body    { email, password, fullName, voterid|voterId, idNumber, dateOfBirth, phone, idType, province, district, ward }
+ * @body    { email, password, fullName, voterId|voterid, idNumber, dateOfBirth, phone, idType, province, district, ward, role }
  */
-router.post('/register', async (req, res) => {
+router.post("/register", async (req, res) => {
   try {
     const {
       email,
@@ -28,16 +30,20 @@ router.post('/register', async (req, res) => {
       province,
       district,
       ward,
+      role: roleFromBody,
     } = req.body;
 
-    // Accept either `voterId` or `voterid` from frontend
-    const voterIdRaw = voterIdFromBody || req.body.voterid || '';
-    const emailNorm = String(email || '').toLowerCase().trim();
-    const voterIdNorm = String(voterIdRaw || '').trim();
-    const idNumberNorm = String(idNumber || '').trim();
+    // normalize fields
+    const voterIdRaw = voterIdFromBody || req.body.voterid || "";
+    const emailNorm = String(email || "").toLowerCase().trim();
+    const voterIdNorm = String(voterIdRaw || "").trim();
+    const idNumberNorm = String(idNumber || "").trim();
 
     if (!emailNorm || !password || !fullName || !voterIdNorm) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
     }
 
     // DEBUG: show normalized inputs
@@ -50,12 +56,17 @@ router.post('/register', async (req, res) => {
     console.debug('[auth.register] registry lookup result', { registryFound: !!registry, registryId: registry?._id });
 
     if (!registry) {
-      return res.status(400).json({ success: false, message: 'Voter not found in the official registry' });
+      return res.status(400).json({
+        success: false,
+        message: "Voter not found in the official registry",
+      });
     }
 
-    // Prevent duplicate registry entry
     if (registry.hasRegistered) {
-      return res.status(400).json({ success: false, message: 'This Voter ID is already registered.' });
+      return res.status(400).json({
+        success: false,
+        message: "This Voter ID is already registered.",
+      });
     }
 
     // Ensure biometric enrollment exists for this voterId before allowing registration
@@ -79,17 +90,29 @@ router.post('/register', async (req, res) => {
 
     // Prevent duplicate user in users collection
     const userExists = await User.findOne({
-      $or: [{ email: emailNorm }, { voterId: voterIdNorm }, { idNumber: idNumberNorm }],
+      $or: [
+        { email: emailNorm },
+        { voterId: voterIdNorm },
+        { idNumber: idNumberNorm },
+      ],
     });
     if (userExists) {
-      return res.status(400).json({ success: false, message: 'User already exists with this email, voter ID, or ID number' });
+      return res.status(400).json({
+        success: false,
+        message: "User already exists with this email, voter ID, or ID number",
+      });
     }
 
+    const allowedRoles = ["voter", "candidate", "admin", "electoral_committee"];
+    const role = allowedRoles.includes(roleFromBody)
+      ? roleFromBody
+      : "voter";
+
     const userData = {
-      role: 'voter',
+      role,
       fullName: fullName.trim(),
       dateOfBirth,
-      phone: String(phone || '').trim(),
+      phone: String(phone || "").trim(),
       email: emailNorm,
       password,
       idType,
@@ -98,27 +121,42 @@ router.post('/register', async (req, res) => {
       province,
       district,
       ward,
-      isVerified: false,
+      isVerified: role === "candidate" ? false : true, // voter auto-verified, candidate needs committee
     };
 
     const user = await User.create(userData);
 
-    // mark registry as registered and save the document
+    // mark registry as registered
     registry.hasRegistered = true;
     await registry.save();
 
     return res.status(201).json({
       success: true,
-      message: 'Registration received. Await Electoral Committee verification.',
-      data: { id: user._id, fullName: user.fullName, email: user.email, voterId: user.voterId },
+      message:
+        role === "candidate"
+          ? "Candidate registration received. Await Electoral Committee verification."
+          : "Registration successful.",
+      data: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        voterId: user.voterId,
+        role: user.role,
+      },
     });
   } catch (err) {
     if (err && err.code === 11000) {
-      const dupField = Object.keys(err.keyValue || {})[0] || 'field';
-      return res.status(409).json({ success: false, message: `Duplicate value for ${dupField}`, data: err.message });
+      const dupField = Object.keys(err.keyValue || {})[0] || "field";
+      return res.status(409).json({
+        success: false,
+        message: `Duplicate value for ${dupField}`,
+        data: err.message,
+      });
     }
-    console.error('Registration Error:', err);
-    return res.status(500).json({ success: false, message: 'Server Error' });
+    console.error("Registration Error:", err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Server Error" });
   }
 });
 
@@ -127,16 +165,18 @@ router.post('/register', async (req, res) => {
  * @desc    Login user (only if verified)
  * @body    { email, password }
  */
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   try {
-    const emailNorm = String(req.body.email || '').toLowerCase().trim();
+    const emailNorm = String(req.body.email || "").toLowerCase().trim();
     const { password } = req.body;
 
-    const user = await User.findOne({ email: emailNorm }).select('+password');
+    const user = await User.findOne({ email: emailNorm }).select("+password");
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: req.t ? req.t('auth.invalid_credentials') : 'Invalid email or password',
+        message:
+          req.t?.("auth.invalid_credentials") ||
+          "Invalid email or password",
       });
     }
 
@@ -144,14 +184,18 @@ router.post('/login', async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message: req.t ? req.t('auth.invalid_credentials') : 'Invalid email or password',
+        message:
+          req.t?.("auth.invalid_credentials") ||
+          "Invalid email or password",
       });
     }
 
     if (!user.isVerified) {
       return res.status(403).json({
         success: false,
-        message: req.t ? req.t('auth.pending_verification') : 'Your account is pending verification by the Electoral Committee',
+        message:
+          req.t?.("auth.pending_verification") ||
+          "Your account is pending verification by the Electoral Committee",
       });
     }
 
@@ -159,7 +203,7 @@ router.post('/login', async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: req.t ? req.t('auth.login_success') : 'Login successful',
+      message: req.t?.("auth.login_success") || "Login successful",
       data: {
         id: user._id,
         fullName: user.fullName,
@@ -170,12 +214,51 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('LOGIN error:', err);
+    console.error("LOGIN error:", err);
     return res.status(500).json({
       success: false,
-      message: req.t ? req.t('common.server_error') : 'Server Error',
+      message: req.t?.("common.server_error") || "Server Error",
     });
   }
 });
+
+/**
+ * @route   PATCH /api/auth/verify/:id
+ * @desc    Verify a pending candidate or user (Committee/Admin only)
+ * @access  Protected
+ */
+router.patch(
+  "/verify/:id",
+  protect,
+  roleMiddleware(["admin", "committee"]),
+  async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id);
+      if (!user)
+        return res.status(404).json({ success: false, message: "User not found" });
+
+      // mark as verified
+      user.isVerified = true;
+      await user.save();
+
+      res.status(200).json({
+        success: true,
+        message: `${user.fullName} has been verified successfully.`,
+        data: {
+          id: user._id,
+          fullName: user.fullName,
+          role: user.role,
+          isVerified: user.isVerified,
+        },
+      });
+    } catch (error) {
+      console.error("Verification error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server Error during verification",
+      });
+    }
+  }
+);
 
 module.exports = router;

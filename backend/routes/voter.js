@@ -20,7 +20,7 @@ router.get('/', protect, committeeOrAdmin, getAllVoters);
 router.patch('/verify/:voterId', protect, committeeOrAdmin, verifyVoter);
 
 // POST /api/voter/bulk   (committee/admin) — add many voters
-router.post('/bulk', protect, authorize('committee', 'admin'), async (req, res) => {
+router.post('/bulk', protect, authorize('electoral_committee', 'admin'), async (req, res) => {
   try {
     const { voters } = req.body; // [{voterId, fullName, dob?, nationalId?}, ...]
     if (!Array.isArray(voters) || voters.length === 0)
@@ -54,7 +54,7 @@ router.post('/bulk', protect, authorize('committee', 'admin'), async (req, res) 
 });
 
 // GET /api/voter/check/:voterId  — check registry status
-router.get('/check/:voterId', protect, authorize('committee', 'admin'), async (req, res) => {
+router.get('/check/:voterId', protect, authorize('electoral_committee', 'admin'), async (req, res) => {
   try {
     const { voterId } = req.params;
     const v = await Voter.findOne({ voterId });
@@ -81,7 +81,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // PATCH /api/voter/verify/:voterId — mark user verified
-router.patch('/verify/:voterId', protect, authorize('committee', 'admin'), async (req, res) => {
+router.patch('/verify/:voterId', protect, authorize('electoral_committee', 'admin'), async (req, res) => {
   try {
     const { voterId } = req.params;
 

@@ -16,7 +16,7 @@ const ElectoralCommitteeDashboard = () => {
 
   const [activeSection, setActiveSection] = useState("dashboard");
   const [elections, setElections] = useState([]);
-  const [newElection, setNewElection] = useState({ name: "", startDate: "", endDate: "" });
+  const [newElection, setNewElection] = useState({ title: "", startDate: "", endDate: "" });
   const [voters, setVoters] = useState([]);
   const [newVoter, setNewVoter] = useState({ id: "", name: "" });
   const [candidates, setCandidates] = useState([]);
@@ -31,13 +31,13 @@ const ElectoralCommitteeDashboard = () => {
 
     try {
       const electionsData = await getElections(token); // if your elections API requires token
-      setElections(electionsData);
+      setElections(electionsData.data);
 
       const candidatesData = await getCandidates(token); // if candidates API requires token
       setCandidates(candidatesData);
 
       const votersData = await getVoters(token); // ✅ pass token here
-      setVoters(votersData);
+      setVoters(votersData.data);
     } catch (error) {
       console.error("Error fetching data:", error);
     }
@@ -50,13 +50,13 @@ const ElectoralCommitteeDashboard = () => {
   const handleChangeElection = (e) => setNewElection({ ...newElection, [e.target.name]: e.target.value });
 
   const handleCreateElection = async () => {
-    if (!newElection.name || !newElection.startDate || !newElection.endDate) {
+    if (!newElection.title || !newElection.startDate || !newElection.endDate) {
       alert("Please fill all fields");
       return;
     }
 
     // Check role
-    if (!["admin", "committee"].includes(user?.role)) {
+    if (!["admin", "electoral_committee"].includes(user?.role)) {
       alert("Only admins or committee members can create elections");
       return;
     }
@@ -64,7 +64,7 @@ const ElectoralCommitteeDashboard = () => {
     try {
       const created = await createElection(newElection, token);
       setElections([...elections, created]);
-      setNewElection({ name: "", startDate: "", endDate: "" });
+      setNewElection({ title: "", startDate: "", endDate: "" });
       alert("Election created successfully!");
     } catch (error) {
       console.error("Error creating election:", error);
@@ -153,7 +153,7 @@ const ElectoralCommitteeDashboard = () => {
                 <div className="space-y-4">
                   <input
                     type="text"
-                    name="name"
+                    name="title"
                     placeholder="Enter Election Location"
                     value={newElection.name}
                     onChange={handleChange}

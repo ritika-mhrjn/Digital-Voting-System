@@ -1,99 +1,106 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User.js');
+const jwt = require("jsonwebtoken");
+const User = require("../models/User.js");
 
-// --- Utility Functions ---
+// --- Utility Function ---
 
 /**
  * Extract Bearer token from Authorization header (case-insensitive)
  */
 function getBearerToken(req) {
   const h = req.headers.authorization || req.headers.Authorization;
-  if (!h || typeof h !== 'string') return null;
-  const [scheme, token] = h.split(' ');
+  if (!h || typeof h !== "string") return null;
+  const [scheme, token] = h.split(" ");
   if (!scheme || !token) return null;
-  if (scheme.toLowerCase() !== 'bearer') return null;
+  if (scheme.toLowerCase() !== "bearer") return null;
   return token.trim();
 }
 
 // --- Middleware Functions ---
 
 /**
- * Protect: verifies JWT, attaches req.user (without password) & req.auth (decoded)
+ * Protect middleware:
+ * - Verifies JWT
+ * - Attaches sanitized req.user (without password)
+ * - Attaches req.auth (decoded payload)
  */
 const protect = async (req, res, next) => {
   try {
     const token = getBearerToken(req);
     if (!token) {
-      return res.status(401).json({ success: false, message: 'Not authorized, token missing' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Not authorized, token missing" });
     }
 
     let decoded;
     try {
-      // NOTE: Ensure process.env.JWT_SECRET is loaded (e.g., via dotenv in server.js)
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
-      if (err.name === 'TokenExpiredError') {
-        return res.status(401).json({ success: false, message: 'Session expired, please log in again' });
+      if (err.name === "TokenExpiredError") {
+        return res
+          .status(401)
+          .json({ success: false, message: "Session expired, please log in again" });
       }
-      return res.status(401).json({ success: false, message: 'Not authorized, invalid token' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Not authorized, invalid token" });
     }
 
-    // Find user by ID from the decoded token payload
-    const user = await User.findById(decoded.id).select('-password');
+    const user = await User.findById(decoded.id).select("-password");
     if (!user) {
-      return res.status(401).json({ success: false, message: 'User not found' });
+      return res
+        .status(401)
+        .json({ success: false, message: "User not found" });
     }
 
-    req.user = user;    // sanitized user object
-    req.auth = decoded; // raw token payload (id, role, iat, exp)
+    req.user = user;
+    req.auth = decoded;
     next();
   } catch (error) {
-    console.error('Auth error:', error.message);
-    // General fallback error response
-    res.status(401).json({ success: false, message: 'Not authorized' });
+    console.error("Auth error:", error.message);
+    res.status(401).json({ success: false, message: "Not authorized" });
   }
 };
 
 /**
- * Role-based authorization: allow only specified roles
- * Usage: authorize('admin', 'electoral_committee')
+ * Role-based authorization middleware.
+ * Usage: authorize('admin', 'committee')
  */
 const authorize = (...roles) => (req, res, next) => {
-  // This check assumes `protect` middleware has run successfully
   if (!req.user) {
-    return res.status(401).json({ success: false, message: 'Not authorized' });
+    return res.status(401).json({ success: false, message: "Not authorized" });
   }
   if (!roles.includes(req.user.role)) {
-    return res.status(403).json({ success: false, message: 'Forbidden: insufficient role' });
+    return res
+      .status(403)
+      .json({ success: false, message: "Forbidden: insufficient role" });
   }
   next();
 };
 
 /**
- * Require verified users (e.g., for voting)
+ * Require verified users (used for voting)
  */
 const requireVerified = (req, res, next) => {
-  // This check assumes `protect` middleware has run successfully
   if (!req.user) {
-    return res.status(401).json({ success: false, message: 'Not authorized' });
+    return res.status(401).json({ success: false, message: "Not authorized" });
   }
   if (!req.user.isVerified) {
     return res.status(403).json({
       success: false,
-      message: 'Your account is pending verification by the Electoral Committee',
+      message:
+        "Your account is pending verification by the Electoral Committee",
     });
   }
   next();
 };
 
-// --- Convenience Guards (using authorize) ---
-const adminOnly = authorize('admin');
-const committeeOnly = authorize('electoral_committee');
-const committeeOrAdmin = authorize('electoral_committee', 'admin');
+// --- Convenience Guards (based on authorize) ---
+const adminOnly = authorize("admin");
+const committeeOnly = authorize("electoral_committee");
+const committeeOrAdmin = authorize("electoral_committee", "admin");
 
-// --- CommonJS Export ---
-
-// Export all middleware functions and convenience guards
+// --- Exports ---
 module.exports = {
   protect,
   authorize,
