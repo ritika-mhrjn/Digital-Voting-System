@@ -1,46 +1,45 @@
 import React, { useState } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useAuth } from "../contexts/AuthContext";
+import { addVoter } from "../api/endpoints"; // Import the API function
 
-const AddVoterModal = ({ onClose }) => {
+const AddVoterModal = ({ onClose, onSuccess }) => {
   const { t } = useLanguage();
+  const { token } = useAuth();
   const [formData, setFormData] = useState({
-    fullname: "",
-    email: "",
-    password: "",
-    phone: "",
+    voterId: "", // Add voterId field since backend requires it
+    fullName: "",
+    dateOfBirth: "",
+    nationalId: "",
   });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
 
-  try {
-    const response = await fetch("http://localhost:5000/api/voters", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to add voter");
+    try {
+      // Use the API function instead of direct fetch
+      await addVoter(formData, token);
+      
+      console.log("✅ New Voter Added");
+      alert(`${t("voterAddedSuccess") || `Voter ${formData.fullName} added successfully!`}`);
+      
+      if (onSuccess) {
+        onSuccess(); // Refresh the voter list
+      }
+      onClose();
+    } catch (error) {
+      console.error("❌ Error adding voter:", error);
+      alert(t("voterAddError") || "Error adding voter. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    const data = await response.json();
-    console.log("✅ New Voter Added:", data);
-    alert(`${t("voterAddedSuccess") || `Voter ${formData.fullname} added successfully!`}`);
-  } catch (error) {
-    console.error("❌ Error adding voter:", error);
-    alert(t("voterAddError") || "Error adding voter. Please try again.");
-  }
-
-  onClose();
-};
-
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -49,87 +48,80 @@ const AddVoterModal = ({ onClose }) => {
           {t("addVoter")}
         </h2>
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 flex flex-col justify-between"
-        >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Voter ID - Required by backend */}
           <div>
-            {/* Full Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t("fullName")}
-              </label>
-              <input
-                name="fullname"
-                placeholder={t("fullNamePlaceholder")}
-                value={formData.fullname}
-                onChange={handleChange}
-                className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
-                required
-              />
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Voter ID *
+            </label>
+            <input
+              name="voterId"
+              placeholder="Enter unique Voter ID"
+              value={formData.voterId}
+              onChange={handleChange}
+              className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
+              required
+            />
+          </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 mt-3">
-                {t("email")}
-              </label>
-              <input
-                name="email"
-                placeholder={t("emailPlaceholder")}
-                value={formData.email}
-                onChange={handleChange}
-                type="email"
-                className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
-                required
-              />
-            </div>
+          {/* Full Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t("fullName")} *
+            </label>
+            <input
+              name="fullName"
+              placeholder={t("fullNamePlaceholder")}
+              value={formData.fullName}
+              onChange={handleChange}
+              className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
+              required
+            />
+          </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 mt-3">
-                {t("password")}
-              </label>
-              <input
-                name="password"
-                placeholder={t("passwordPlaceholder")}
-                value={formData.password}
-                onChange={handleChange}
-                type="password"
-                className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
-                required
-              />
-            </div>
+          {/* Date of Birth */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date of Birth
+            </label>
+            <input
+              name="dateOfBirth"
+              type="date"
+              value={formData.dateOfBirth}
+              onChange={handleChange}
+              className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
 
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 mt-3">
-                {t("phone")}
-              </label>
-              <input
-                name="phone"
-                placeholder={t("phonePlaceholder")}
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
-                required
-              />
-            </div>
+          {/* National ID */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              National ID
+            </label>
+            <input
+              name="nationalId"
+              placeholder="Enter National ID"
+              value={formData.nationalId}
+              onChange={handleChange}
+              className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
+            />
           </div>
 
           <div className="flex justify-between mt-6">
             <button
               type="button"
               onClick={onClose}
-              className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
+              disabled={loading}
+              className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 disabled:opacity-50"
             >
               {t("close")}
             </button>
             <button
               type="submit"
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              disabled={loading}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
             >
-              {t("save")}
+              {loading ? "Adding..." : t("save")}
             </button>
           </div>
         </form>

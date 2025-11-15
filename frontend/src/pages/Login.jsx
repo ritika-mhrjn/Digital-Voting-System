@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { loginUser } from "../api/endpoints";
 import { useAuth } from "../contexts/AuthContext";
+import { Link } from "react-router-dom";
 
 const Login = () => {
   const { login, user } = useAuth();
@@ -57,8 +58,8 @@ const Login = () => {
       const user = res?.data;
 
       console.log("user: ", user);
-      
-      
+
+
 
       if (!token || !user) {
         throw new Error("Invalid response from server");
@@ -84,7 +85,7 @@ const Login = () => {
 
   };
 
-  const handleBack = () => navigate("/register");
+  const handleBack = () => navigate("/");
 
   const isAlreadyLoggedIn = !!user;
 
@@ -93,8 +94,8 @@ const Login = () => {
       if (user?.role === "admin") navigate("/admin-dashboard");
       else if (user?.role === "candidate") navigate("/candidate-dashboard");
       else if (user?.role === "electoral_committee") navigate("/electoral-committee-dashboard");
-      else if (user?.role === "voter") navigate("/voter-dashboard");  
-  }
+      else if (user?.role === "voter") navigate("/voter-dashboard");
+    }
   }, [isAlreadyLoggedIn, user, navigate]);
 
   return (
@@ -170,10 +171,26 @@ const Login = () => {
 
         <button
           type="submit"
-          className="w-full bg-blue-800 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+          className="w-20 bg-blue-800 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
         >
           {t("login")}
         </button>
+        <p className="text-left text-sm">
+          Don't have an account?{" "}
+          <Link
+            to="/register"
+            className="text-blue-600 underline hover:text-blue-800">
+            {t("register")}
+          </Link>
+        </p>
+        <p className="text-left text-sm">
+          Are you a Candidate?{" "}
+          <Link
+            to="/candidate-registration"
+            className="text-blue-600 underline hover:text-blue-800">
+            {t("register")}
+          </Link>
+        </p>
       </form>
     </div>
   );

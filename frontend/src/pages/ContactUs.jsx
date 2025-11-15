@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; 
 import { useLanguage } from "../contexts/LanguageContext";
-import { sendContactMessage } from "../api/endpoints"; // ✅ import API function
+import { sendContactMessage } from "../api/endpoints";
 
 const ContactUs = () => {
     const navigate = useNavigate();
-    const { t } = useLanguage();
+    const location = useLocation(); 
+    const { language, setLanguage, t } = useLanguage();
     
     const [formData, setFormData] = useState({
         name: "",
@@ -26,7 +27,7 @@ const ContactUs = () => {
         setLoading(true);
 
         try {
-            await sendContactMessage(formData); // ✅ call backend API
+            await sendContactMessage(formData);
             alert(t("msgsent") || "Message sent! Thank you for contacting us.");
             setFormData({ name: "", email: "", message: "" });
         } catch (err) {
@@ -41,17 +42,66 @@ const ContactUs = () => {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center bg-blue-50">
-            <nav className="w-full bg-gray-100 shadow-md py-3 flex justify-center items-center fixed top-0 left-0 z-50">
-                <img
-                    src="/logo.png"
-                    alt="Voting System Logo"
-                    className="h-20 w-auto object-contain cursor-pointer"
-                    onClick={() => navigate("/")}
-                />
+        <div className="min-h-screen flex flex-col items-center bg-white">
+            {/* Navbar */}
+            <nav className="flex justify-between items-center px-6 md:px-10 py-2 bg-blue-50 shadow-md rounded-b-lg w-full">
+                <div className="flex items-center">
+                    <img
+                        src="/logo.png"
+                        alt="Voting System Logo"
+                        className="h-20 w-auto object-contain cursor-pointer"
+                        onClick={() => navigate("/")}
+                    />
+                </div>
+
+                <div className="hidden md:flex items-center space-x-10 font-semibold">
+                    <button
+                        onClick={() => navigate("/")}
+                        className={`text-lg transition ${
+                            location.pathname === "/" ? "text-blue-500" : "text-gray-900 hover:text-blue-500"
+                        }`}
+                    >
+                        {t("home")}
+                    </button>
+                    <button
+                        onClick={() => navigate("/about")}
+                        className={`text-lg transition ${
+                            location.pathname === "/about" ? "text-blue-500" : "text-gray-900 hover:text-blue-500"
+                        }`}
+                    >
+                        {t("aboutUs")}
+                    </button>
+                    <button
+                        onClick={() => navigate("/contact")}
+                        className={`text-lg transition ${
+                            location.pathname === "/contact" ? "text-blue-500" : "text-gray-900 hover:text-blue-500"
+                        }`}
+                    >
+                        {t("contactUs")}
+                    </button>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                    <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="px-3 py-1 border border-gray-300 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-300 transition font-medium"
+                    >
+                        <option value="en">{t("english")}</option>
+                        <option value="np">{t("nepali")}</option>
+                    </select>
+
+                    <button
+                        onClick={() => navigate("/login")}
+                        className="px-3 py-1 border border-gray-300 text-gray-900 rounded-lg hover:bg-gray-300 transition font-medium"
+                    >
+                        {t("loginRegister")}
+                    </button>
+                </div>
             </nav>
 
-            <main className="flex flex-col items-center w-full flex-grow mt-28 px-4">
+            {/* Contact form */}
+            <main className="flex flex-col items-center w-full flex-grow mt-2 px-4">
                 <p className="text-gray-700 text-center max-w-md mb-10">
                     {t("ques")}
                 </p>
@@ -61,9 +111,7 @@ const ContactUs = () => {
                     className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg mb-16"
                 >
                     {error && (
-                        <p className="text-red-500 text-sm text-center mb-4">
-                            {error}
-                        </p>
+                        <p className="text-red-500 text-sm text-center mb-4">{error}</p>
                     )}
 
                     <div className="mb-4">
@@ -117,13 +165,12 @@ const ContactUs = () => {
                 </form>
             </main>
 
-            <footer className="w-full bg-white border-t border-gray-200">
+            {/* Footer */}
+            <footer className="w-full bg-gray-100 border-t border-black">
                 <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start gap-10 p-8 text-gray-700">
                     <div className="flex-1">
                         <h2 className="text-2xl font-bold text-blue-900 mb-3">{t("nayaMat")}</h2>
-                        <p className="text-sm text-gray-600 leading-relaxed max-w-sm">
-                            {t("nayaMatpart")}
-                        </p>
+                        <p className="text-sm text-gray-600 leading-relaxed max-w-sm">{t("nayaMatpart")}</p>
                     </div>
 
                     <div className="flex-1">

@@ -1,121 +1,111 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { updateVoter } from "../api/endpoints";
 
 const EditVoterModal = ({ voter, onClose, onUpdate }) => {
   const { t } = useLanguage();
-  const [formData, setFormData] = useState({ ...voter });
-  const [formErrors, setFormErrors] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    voterId: "",
+    fullName: "",
+    dateOfBirth: "",
+    nationalId: "",
+  });
+
+  useEffect(() => {
+    if (voter) {
+      setFormData({
+        voterId: voter.voterId || "",
+        fullName: voter.fullName || "",
+        dateOfBirth: voter.dateOfBirth || "",
+        nationalId: voter.nationalId || "",
+      });
+    }
+  }, [voter]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Validation function
-  const validateForm = () => {
-    const errors = {};
-    if (!formData.fullname?.trim()) errors.fullname = t("fullNameRequired") || "Full name is required";
-    if (!formData.email?.trim()) errors.email = t("emailRequired") || "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = t("invalidEmail") || "Invalid email address";
-    if (!formData.phone?.trim()) errors.phone = t("phoneRequired") || "Phone is required";
-    else if (!/^\d{10}$/.test(formData.phone)) errors.phone = t("invalidPhone") || "Phone must be 10 digits";
-    return errors;
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-
-    const errors = validateForm();
-    setFormErrors(errors);
-
-    if (Object.keys(errors).length === 0) {
-      setLoading(true);
-      try {
-        const response = await updateVoter(formData._id, formData);
-        console.log("Voter updated:", response);
-        onUpdate(response);
-        onClose();
-      } catch (error) {
-        console.error("Update failed:", error);
-        alert(error.response?.data?.message || "Failed to update voter. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    }
+    onUpdate({
+      ...voter,
+      ...formData
+    });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 border border-gray-300">
-        <h2 className="text-2xl font-bold mb-6">
-          {t("edit")} {t("voter")}
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-semibold mb-4 text-center">
+          Edit Voter
         </h2>
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Full Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t("fullName")}
+              Voter ID
             </label>
             <input
-              name="fullname"
-              placeholder={t("fullNamePlaceholder")}
-              value={formData.fullname}
+              name="voterId"
+              value={formData.voterId}
               onChange={handleChange}
-              className={`w-full border rounded-md p-2 ${formErrors.fullname ? "border-red-500" : ""}`}
+              className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
               required
+              disabled // Voter ID should not be editable as it's the unique identifier
             />
-            {formErrors.fullname && <p className="text-red-500 text-sm mt-1">{formErrors.fullname}</p>}
           </div>
 
-          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t("email")}
+              {t("fullName")} *
             </label>
             <input
-              type="email"
-              placeholder={t("emailPlaceholder")}
-              name="email"
-              value={formData.email}
+              name="fullName"
+              value={formData.fullName}
               onChange={handleChange}
-              className={`w-full border rounded-md p-2 ${formErrors.email ? "border-red-500" : ""}`}
+              className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
               required
             />
-            {formErrors.email && <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>}
           </div>
 
-          {/* Phone */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t("phone")}
+              Date of Birth
             </label>
             <input
-              name="phone"
-              placeholder={t("phonePlaceholder")}
-              value={formData.phone}
+              name="dateOfBirth"
+              type="date"
+              value={formData.dateOfBirth}
               onChange={handleChange}
-              className={`w-full border rounded-md p-2 ${formErrors.phone ? "border-red-500" : ""}`}
-              required
+              className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
             />
-            {formErrors.phone && <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>}
           </div>
 
-          {/* Buttons */}
-          <div className="flex justify-end gap-3 mt-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              National ID
+            </label>
+            <input
+              name="nationalId"
+              value={formData.nationalId}
+              onChange={handleChange}
+              className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+
+          <div className="flex justify-between mt-6">
             <button
               type="button"
               onClick={onClose}
-              className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 transition"
+              className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
             >
               {t("close")}
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className={`bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
             >
-              {loading ? t("updating") || "Updating..." : t("update")}
+              {t("save")}
             </button>
           </div>
         </form>

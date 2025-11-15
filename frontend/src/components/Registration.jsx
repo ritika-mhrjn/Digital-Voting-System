@@ -7,6 +7,7 @@ import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 import BiometricChoice from './biometric/BiometricChoice';
 import { registerUser } from "../api/endpoints";
 import { useAuth } from "../contexts/AuthContext";
+import { Link } from "react-router-dom";
 
 const Registration = () => {
   const navigate = useNavigate();
@@ -34,17 +35,44 @@ const Registration = () => {
   const [biometricData, setBiometricData] = useState(null);
 
   const handleInputChange = (e) => {
-  const { name, value } = e.target;
-  if (name === "fullName" || name === "district") {
-    const lettersOnly = value.replace(/[^a-zA-Z\s]/g, "");
-    setFormData((prev) => ({ ...prev, [name]: lettersOnly }));
-  } else if (name === "phone" || name === "ward") {
-    const numbersOnly = value.replace(/\D/g, "");
-    setFormData((prev) => ({ ...prev, [name]: numbersOnly }));
-  } else {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  }
-};
+    const { name, value } = e.target;
+
+    if (name === "fullName") {
+      const lettersOnly = value.replace(/[^a-zA-Z\s]/g, "").slice(0, 30);
+      setFormData((prev) => ({ ...prev, [name]: lettersOnly }));
+
+    } else if (name === "district") {
+      const lettersOnly = value.replace(/[^a-zA-Z]/g, "").slice(0, 12);
+      setFormData((prev) => ({ ...prev, [name]: lettersOnly }));
+
+    } else if (name === "ward") {
+      let numbersOnly = value.replace(/\D/g, "");
+      if (numbersOnly) {
+        let wardNum = parseInt(numbersOnly);
+        if (wardNum <= 0) wardNum = 1;
+        else if (wardNum > 32) wardNum = 32;
+        numbersOnly = wardNum.toString();
+      }
+      setFormData((prev) => ({ ...prev, [name]: numbersOnly }));
+
+    } else if (name === "phone") {
+      const numbersOnly = value.replace(/\D/g, "").slice(0, 10);
+      setFormData((prev) => ({ ...prev, [name]: numbersOnly }));
+
+    } else if (name === "password" || name === "confirmPassword") {
+      setFormData((prev) => ({ ...prev, [name]: value.slice(0, 18) }));
+
+    } else if (name === "idType") {
+      setFormData((prev) => ({ ...prev, [name]: value.slice(0, 15) }));
+
+    } else if (name === "email") {
+      setFormData((prev) => ({ ...prev, [name]: value.slice(0, 20) }));
+
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
 
 
   const handleDateChange = (value) => {
@@ -72,81 +100,80 @@ const Registration = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  const errors = validateForm();
-  setFormErrors(errors);
+    e.preventDefault();
+    const errors = validateForm();
+    setFormErrors(errors);
 
-  if (Object.keys(errors).length === 0) {
-    setLoading(true);
+    if (Object.keys(errors).length === 0) {
+      setLoading(true);
 
-    try {
-      // Create payload with form data + biometric data
-      const payload = {
-        role: formData.role,
-        fullName: formData.fullName,
-        dateOfBirth: formData.dateOfBirth,
-        phone: formData.phone,
-        email: formData.email,
-        password: formData.password,
-        idType: formData.idType,
-        idNumber: formData.idNumber,
-        voterId: formData.voterId,
-        province: formData.province,
-        district: formData.district,
-        ward: formData.ward,
-        // biometricData
-      };
+      try {
+        const payload = {
+          role: formData.role,
+          fullName: formData.fullName,
+          dateOfBirth: formData.dateOfBirth,
+          phone: formData.phone,
+          email: formData.email,
+          password: formData.password,
+          idType: formData.idType,
+          idNumber: formData.idNumber,
+          voterId: formData.voterId,
+          province: formData.province,
+          district: formData.district,
+          ward: formData.ward,
+          biometricData
+        };
 
-      // Register user
-      const response = await registerUser(payload);
-      console.log("User registered successfully:", response);
+        // Register user
+        const response = await registerUser(payload);
+        console.log("User registered successfully:", response);
 
-      // Post-registration: upload face images if provided
-      // const userId = response?.data?.id || response?.data?._id || response?.id || null;
-      // if (userId && biometricData) {
-      //   const API_BASE = import.meta.env.VITE_API_URL || '';
-      //   const images = Array.isArray(biometricData.data) ? biometricData.data : [biometricData.data];
+        // Post-registration: upload face images if provided
+        const userId = response?.data?.id || response?.data?._id || response?.id || null;
+        if (userId && biometricData) {
+          const API_BASE = import.meta.env.VITE_API_URL || '';
+          const images = Array.isArray(biometricData.data) ? biometricData.data : [biometricData.data];
 
-      //   await fetch(`${API_BASE}/api/biometrics/face/register-batch`, {
-      //     method: 'POST',
-      //     headers: { 'Content-Type': 'application/json' },
-      //     body: JSON.stringify({ userId, images, consent: true }),
-      //   })
-      //   .then(res => res.json())
-      //   .then(r => {
-      //     if (!r || !r.success) console.warn('Biometric register-batch returned error', r);
-      //   })
-      //   .catch(err => console.warn('Post-registration biometric upload failed', err));
-      // }
+          await fetch(`${API_BASE}/api/biometrics/face/register-batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, images, consent: true }),
+          })
+            .then(res => res.json())
+            .then(r => {
+              if (!r || !r.success) console.warn('Biometric register-batch returned error', r);
+            })
+            .catch(err => console.warn('Post-registration biometric upload failed', err));
+        }
 
-      alert(t("registrationSuccess") || "Registration successful!");
-      navigate("/login");
+        alert(t("registrationSuccess") || "Registration successful!");
+        navigate("/login");
 
-    } catch (error) {
-      console.error("Registration failed:", error);
-      const serverMessage = error.response?.data?.message || error.message || 'Registration failed. Please try again.';
-      alert(serverMessage);
-    } finally {
-      setLoading(false);
+      } catch (error) {
+        console.error("Registration failed:", error);
+        const serverMessage = error.response?.data?.message || error.message || 'Registration failed. Please try again.';
+        alert(serverMessage);
+      } finally {
+        setLoading(false);
+      }
     }
-  }
-};
+  };
 
 
   const handleBack = () => {
-    navigate("/");
+    navigate("/login");
   };
 
   const isAlreadyLoggedIn = !!user;
-  
-    useEffect(() => {
-      if (isAlreadyLoggedIn) {
-        if (user?.role === "admin") navigate("/admin-dashboard");
-        else if (user?.role === "candidate") navigate("/candidate-dashboard");
-        else if (user?.role === "electoral_committee") navigate("/electoral-committee-dashboard");
-        else if (user?.role === "voter") navigate("/voter-dashboard");  
+
+  useEffect(() => {
+    if (isAlreadyLoggedIn) {
+      if (user?.role === "admin") navigate("/admin-dashboard");
+      else if (user?.role === "candidate") navigate("/candidate-dashboard");
+      else if (user?.role === "committee") navigate("/electoral-committee-dashboard");
+      else if (user?.role === "voter") navigate("/voter-dashboard");
     }
-    }, [isAlreadyLoggedIn, user, navigate]);
+  }, [isAlreadyLoggedIn, user, navigate]);
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
@@ -172,7 +199,7 @@ const Registration = () => {
           </div>
 
           {/* Registration Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 mt-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Full Name */}
@@ -430,17 +457,15 @@ const Registration = () => {
 
               {/* Already registered */}
               <p className="text-center text-gray-600 text-sm mt-4 font-bold">
-                {t('alreadyRegistered')} <br />
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="w-32 bg-blue-800 text-white py-2 px-4 mt-3 rounded-xl font-semibold hover:scale-[1.02] hover:shadow-lg"
-                >
+                {t('alreadyRegistered')} {" "}
+                <Link
+                  to="/login"
+                  className="text-blue-600 underline hover:text-blue-800">
                   {t("login")}
-                </button>
+                </Link>
               </p>
             </div>
-            </form>
+          </form>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 
 import Heropg from "./components/heropg";
 import Registration from "./components/Registration";
+import CandidateRegistration from "./components/CandidateRegistration";
 import AboutUs from "./pages/AboutUs";
 import ContactUs from "./pages/ContactUs";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -30,6 +31,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/contact" element={<ContactUs />} />
+            <Route path="/candidate-registration" element={<CandidateRegistration />} />
 
             {/* Protected Routes - Admin Dashboard with Nested Routes */}
             <Route

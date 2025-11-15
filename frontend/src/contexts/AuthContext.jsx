@@ -21,6 +21,8 @@ export const AuthProvider = ({ children }) => {
         const currentTime = Date.now() / 1000;
         
         if (decoded.exp && decoded.exp > currentTime) {
+          // Set axios header immediately for initial load
+          axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
           return storedToken;
         } else {
           // Token expired, clear storage
@@ -43,9 +45,24 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [user, setUser] = useState(() => {
-    if (!token) return null;
-    const u = localStorage.getItem("user") || sessionStorage.getItem("user");
-    return u ? JSON.parse(u) : null;
+    const storedUser = localStorage.getItem("user") || sessionStorage.getItem("user");
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      
+      // If we have a token but user data might be missing role, try to decode token
+      const storedToken = localStorage.getItem("token") || sessionStorage.getItem("token");
+      if (!userData.role && storedToken) {
+        try {
+          const decoded = jwtDecode(storedToken);
+          return { ...userData, role: decoded.role };
+        } catch (error) {
+          console.error('Error decoding token for role:', error);
+        }
+      }
+      
+      return userData;
+    }
+    return null;
   });
 
   const [loading] = useState(false);
@@ -59,17 +76,55 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  // ✅ Login function
+  // ✅ Updated Login function with token decoding
   const login = (newToken, userInfo, persist = true) => {
-    setToken(newToken);
-    setUser(userInfo || null);
+    try {
+      // Decode the token to get the actual user data including role
+      const decoded = jwtDecode(newToken);
+      
+      // Create user object with data from both token and userInfo
+      // The token should contain the most up-to-date role information
+      const userData = {
+        ...userInfo,
+        id: decoded.id || userInfo?.id,
+        role: decoded.role || userInfo?.role, // Priority to token role
+        fullName: userInfo?.fullName || decoded.fullName,
+        email: userInfo?.email || decoded.email
+      };
 
-    if (persist) {
-      localStorage.setItem("token", newToken);
-      if (userInfo) localStorage.setItem("user", JSON.stringify(userInfo));
-    } else {
-      sessionStorage.setItem("token", newToken);
-      if (userInfo) sessionStorage.setItem("user", JSON.stringify(userInfo));
+      setToken(newToken);
+      setUser(userData);
+
+      if (persist) {
+        localStorage.setItem("token", newToken);
+        localStorage.setItem("user", JSON.stringify(userData));
+        
+        // Also store individual fields for easy access if needed
+        localStorage.setItem("userRole", userData.role);
+        if (userData.email) localStorage.setItem("userEmail", userData.email);
+        if (userData.voterId) localStorage.setItem("voterId", userData.voterId);
+        if (userData.fullName) localStorage.setItem("fullName", userData.fullName);
+      } else {
+        sessionStorage.setItem("token", newToken);
+        sessionStorage.setItem("user", JSON.stringify(userData));
+      }
+
+      // Set axios default header
+      axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+
+    } catch (error) {
+      console.error('Error during login:', error);
+      // Fallback: use the original userInfo if token decoding fails
+      setToken(newToken);
+      setUser(userInfo);
+
+      if (persist) {
+        localStorage.setItem("token", newToken);
+        if (userInfo) localStorage.setItem("user", JSON.stringify(userInfo));
+      } else {
+        sessionStorage.setItem("token", newToken);
+        if (userInfo) sessionStorage.setItem("user", JSON.stringify(userInfo));
+      }
     }
   };
 

@@ -73,7 +73,7 @@ const AdminDashboard = () => {
   }, []);
 
   const handleLogout = () => {
-    logout(); // This clears all storage and redirects to /login
+    logout();
   };
 
   const handleMenuClick = (id) => {
@@ -91,98 +91,115 @@ const AdminDashboard = () => {
   return (
     <div className="flex min-h-screen bg-slate-50">
       {/* Sidebar */}
-      <aside
-        className={`flex flex-col bg-slate-900 text-white transition-all duration-200 ${
-          collapsed ? "w-20" : "w-64"
-        }`}
+     <aside
+  className={`flex flex-col bg-[#f3e8ff] text-slate-800 transition-all duration-200 h-screen sticky top-0 ${
+    collapsed ? "w-20" : "w-64"
+  }`}
+>
+  <div className="flex-shrink-0">
+    <div className="flex items-center justify-between p-4 border-b-3 border-gray-500">
+      <div className="flex items-center gap-3">
+        <img
+          src="/logo.png"
+          alt="Logo"
+          className={`h-10 w-10 object-contain rounded-full border border-indigo-200 ${
+            collapsed ? "mx-auto" : ""
+          }`}
+        />
+        {!collapsed && (
+          <div>
+            <h1 className="text-xl font-extrabold text-indigo-800 tracking-wide">
+              {t("NayaMat")}
+            </h1>
+            <p className="text-sm text-indigo-600 font-medium">
+              {t("adminPanel")}
+            </p>
+          </div>
+        )}
+      </div>
+      <button
+        onClick={() => setCollapsed((s) => !s)}
+        className="hidden md:inline-flex p-2 rounded hover:bg-indigo-100/70 text-indigo-600"
       >
-        <div className="flex items-center justify-between p-4 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="Logo"
-              className={`h-10 w-10 object-contain rounded ${
-                collapsed ? "mx-auto" : ""
-              }`}
-            />
-            {!collapsed && (
-              <div>
-                <h1 className="text-lg font-bold">{t("NayaMat")}</h1>
-                <p className="text-xs text-slate-300">{t("adminPanel")}</p>
-              </div>
-            )}
-          </div>
-          <button
-            onClick={() => setCollapsed((s) => !s)}
-            className="hidden md:inline-flex p-2 rounded hover:bg-slate-800"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        </div>
+        <Menu className="w-5 h-5" />
+      </button>
+    </div>
 
-        <div className="flex items-center gap-3 p-4 border-b border-slate-800">
-          <div className="relative">
-            <div className="inline-flex items-center justify-center w-10 h-10 bg-blue-800 rounded-full">
-              <User className="w-6 h-6 text-white" />
-            </div>
-            <span
-              onClick={() => setIsOnline((s) => !s)}
-              className={`absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-slate-900 ${
-                isOnline ? "bg-green-400" : "bg-gray-400"
-              }`}
-              title={isOnline ? "Online" : "Offline"}
-              style={{ cursor: "pointer" }}
-            />
-          </div>
+    <div className="flex items-center gap-3 p-4 border-b-2 border-gray-400">
+      <div className="relative">
+        <div className="inline-flex items-center justify-center w-10 h-10 bg-indigo-500 rounded-full shadow-sm">
+          <User className="w-6 h-6 text-white" />
+        </div>
+        <span
+          onClick={() => setIsOnline((s) => !s)}
+          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-indigo-100 ${
+            isOnline ? "bg-emerald-400" : "bg-slate-300"
+          }`}
+          title={isOnline ? "Online" : "Offline"}
+          style={{ cursor: "pointer" }}
+        />
+      </div>
+      {!collapsed && (
+        <div>
+          <p className="text-base font-semibold text-indigo-900">
+            {t("systemAdministrator")}
+          </p>
+          <p className="text-sm text-indigo-600 font-medium">
+            {isOnline ? "Online" : "Offline"}
+          </p>
+        </div>
+      )}
+    </div>
+  </div>
+
+  <nav className="flex-1 px-2 py-4 space-y-2 overflow-auto">
+    {menuItems.map((m) => {
+      const active = m.id === activeMenu;
+      return (
+        <button
+          key={m.id}
+          onClick={() => handleMenuClick(m.id)}
+          className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition text-base ${
+            active
+              ? "bg-indigo-500/90 text-white font-semibold shadow-sm"
+              : "text-indigo-800/90 hover:bg-indigo-300"
+          }`}
+        >
+          {m.icon}
           {!collapsed && (
-            <div>
-              <p className="text-sm font-semibold">{t("systemAdministrator")}</p>
-              <p className="text-xs text-slate-300">
-                {isOnline ? "Online" : "Offline"}
-              </p>
-            </div>
+            <span className="font-medium tracking-wide">{m.label}</span>
           )}
-        </div>
+        </button>
+      );
+    })}
+    <div className="h-20"></div>
+  </nav>
 
-        <nav className="flex-1 px-2 py-4 space-y-2 overflow-auto">
-          {menuItems.map((m) => {
-            const active = m.id === activeMenu;
-            return (
-              <button
-                key={m.id}
-                onClick={() => handleMenuClick(m.id)}
-                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-slate-800 transition ${
-                  active
-                    ? "bg-gradient-to-r from-sky-700 to-sky-600 font-semibold"
-                    : "font-medium"
-                }`}
-              >
-                {m.icon}
-                {!collapsed && <span>{m.label}</span>}
-              </button>
-            );
-          })}
-        </nav>
+  <div className="sticky bottom-0 bg-[#f3e8ff] p-4 border-t border-gray-300">
+    <button
+      onClick={handleLogout}
+      className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-pink-500 text-white hover:bg-pink-600 rounded-lg transition-colors"
+    >
+      <LogOut className="w-4 h-4" />
+      {!collapsed && (
+        <span className="font-semibold text-base tracking-wide">
+          {t ? t("logout") : "Logout"}
+        </span>
+      )}
+    </button>
+  </div>
+</aside>
 
-        <div className="p-4 border-t border-slate-800">
-          <button
-            onClick={handleLogout}
-            className="flex items-center justify-center gap-2 w-full py-2 bg-blue-800 text-white hover:bg-blue-900 rounded-lg"
-          >
-            <LogOut className="w-4 h-4" />
-            {!collapsed && <span className="font-semibold">{t("logout")}</span>}
-          </button>
-        </div>
-      </aside>
+
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <header className="flex justify-end items-center p-4 bg-slate-800 border-b border-slate-200">
+        <header className="flex justify-end items-center p-4.5 bg-[#faf5ff] border-b-3 border-gray-500">
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center justify-center w-10 h-10 bg-blue-800 rounded-full">
               <User className="w-6 h-6 text-white" />
             </div>
-            <p className="text-lg text-white font-bold">
+            <p className="text-lg text-black font-bold">
               {t("systemAdministrator")}
             </p>
           </div>

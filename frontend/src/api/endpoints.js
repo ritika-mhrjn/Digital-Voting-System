@@ -107,9 +107,10 @@ export const addComment = async (postId, comment) => {
 
 
 // Candidates
-export const getCandidates = async () => {
+export const getCandidates = async (token) => {
   try {
-    const response = await axios.get(`${API_BASE}/candidates`);
+    const config = token ? authConfig(token) : {};
+    const response = await axios.get(`${API_BASE}/candidates`, config);
     return response.data;
   } catch (error) {
     console.error("Failed to fetch candidates:", error.response?.data || error.message);
@@ -150,10 +151,41 @@ export const deleteCandidate = async (candidateId) => {
 // Voters
 export const getVoters = async (token) => {
   try {
-    const response = await axios.get(`${API_BASE}/voters`, authConfig(token));
+    const response = await axios.get(
+      `${API_BASE}/voters`,  
+      authConfig(token)
+    );
     return response.data;
   } catch (error) {
     console.error("Failed to fetch voters:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const addVoter = async (voterData, token) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE}/voters/bulk`,  
+      { voters: [voterData] },
+      authConfig(token)
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to add voter:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const verifyVoter = async (voterId, token) => {
+  try {
+    const response = await axios.patch(
+      `${API_BASE}/voters/verify/${voterId}`,
+      {},
+      authConfig(token)
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to verify voter:", error.response?.data || error.message);
     throw error;
   }
 };
@@ -164,16 +196,6 @@ export const getVoterById = async (id, token) => {
     return response.data;
   } catch (error) {
     console.error("Failed to fetch voter:", error.response?.data || error.message);
-    throw error;
-  }
-};
-
-export const addVoter = async (voterData, token) => {
-  try {
-    const response = await axios.post(`${API_BASE}/voters`, voterData, authConfig(token));
-    return response.data;
-  } catch (error) {
-    console.error("Failed to add voter:", error.response?.data || error.message);
     throw error;
   }
 };
@@ -198,10 +220,14 @@ export const deleteVoter = async (id, token) => {
   }
 };
 
-// Elections
+//Elections
 export const createElection = async (electionData, token) => {
   try {
-    const response = await axios.post(`${API_BASE}/election/create`, electionData, authConfig(token));
+    const response = await axios.post(
+      `${API_BASE}/election/create`,
+      electionData,
+      authConfig(token)
+    );
     return response.data;
   } catch (error) {
     console.error("Failed to create election:", error.response?.data || error.message);
@@ -209,9 +235,10 @@ export const createElection = async (electionData, token) => {
   }
 };
 
-export const getElections = async () => {
+export const getElections = async (token) => {
   try {
-    const response = await axios.get(`${API_BASE}/election`);
+    const config = token ? authConfig(token) : {};
+    const response = await axios.get(`${API_BASE}/election`, config);
     return response.data;
   } catch (error) {
     console.error("Failed to fetch elections:", error.response?.data || error.message);
@@ -219,9 +246,10 @@ export const getElections = async () => {
   }
 };
 
-export const getElectionById = async (id) => {
+export const getElectionById = async (id, token) => {
   try {
-    const response = await axios.get(`${API_BASE}/election/${id}`);
+    const config = token ? authConfig(token) : {};
+    const response = await axios.get(`${API_BASE}/election/${id}`, config);
     return response.data;
   } catch (error) {
     console.error("Failed to fetch election:", error.response?.data || error.message);
@@ -229,12 +257,53 @@ export const getElectionById = async (id) => {
   }
 };
 
+export const updateElection = async (electionId, updateData, token) => {
+  try {
+    const response = await axios.put(
+      `${API_BASE}/election/${electionId}`,
+      updateData,
+      authConfig(token)
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to update election:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export const endElection = async (id, token) => {
   try {
-    const response = await axios.put(`${API_BASE}/election/${id}/end`, {}, authConfig(token));
+    const response = await axios.put(
+      `${API_BASE}/election/${id}/end`,
+      {},
+      authConfig(token)
+    );
     return response.data;
   } catch (error) {
     console.error("Failed to end election:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const deleteElection = async (id, token) => {
+  try {
+    const response = await axios.delete(
+      `${API_BASE}/election/${id}`,
+      authConfig(token)
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to delete election:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const getPublicElections = async () => {
+  try {
+    const response = await api.get('/elections/public');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching public elections:", error);
     throw error;
   }
 };
