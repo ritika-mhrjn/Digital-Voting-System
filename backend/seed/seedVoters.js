@@ -1,10 +1,12 @@
+
+
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const Voter = require('../models/Voter.js');
 
 dotenv.config();
 
-// ---- Helper data ----
+
 const firstNames = [
   'Raman', 'Sita', 'Bikash', 'Aarati', 'Krishna', 'Anita', 'Bishal', 'Laxmi',
   'Dipak', 'Sabina', 'Prakash', 'Sunita', 'Raju', 'Nirmala', 'Kiran', 'Rita',
@@ -23,6 +25,7 @@ const lastNames = [
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randomName = () => `${pick(firstNames)} ${pick(lastNames)}`;
 
+// DOB between 1970–2003
 const randomDOB = () => {
   const y = Math.floor(Math.random() * (2003 - 1970 + 1)) + 1970;
   const m = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
@@ -30,46 +33,75 @@ const randomDOB = () => {
   return `${y}-${m}-${d}`;
 };
 
-const randomNatId = () => String(Math.floor(1000000 + Math.random() * 9000000));
+const randomNatId = () => String(1000000 + Math.floor(Math.random() * 9000000));
 
-// ---- Generate data ----
-const TOTAL_VOTERS = 1000; // change this number anytime
-const voters = Array.from({ length: TOTAL_VOTERS }, (_, i) => ({
-  voterId: `NP-${String(i + 1).padStart(3, '0')}`,  // NP-001 .. NP-1000
-  fullName: randomName(),
-  dateOfBirth: randomDOB(),
-  nationalId: randomNatId(),
-  hasRegistered: false
-}));
 
-// ---- Seed function ----
+function generateValidVoterId(sequence) {
+  while (true) {
+    let raw = String(sequence).padStart(10, '0'); // 10 digits
+
+    // Validation rules
+    if (raw.startsWith('0')) { sequence++; continue; }
+    if (raw.includes('000')) { sequence++; continue; }
+    if (raw.includes('00')) { sequence++; continue; }
+
+    // Apply format
+    const voterId =
+      `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6, 9)}-${raw.slice(9)}`;
+
+    return { voterId, nextSequence: sequence + 1 };
+  }
+}
+
+
+const TOTAL_VOTERS = 1000;
+let currentSeq = 1;
+
+const voters = Array.from({ length: TOTAL_VOTERS }, () => {
+  const { voterId, nextSequence } = generateValidVoterId(currentSeq);
+  currentSeq = nextSequence;
+
+  return {
+    voterId,
+    fullName: randomName(),
+    dateOfBirth: randomDOB(),
+    nationalId: randomNatId(),
+    hasRegistered: false
+  };
+});
+
+
 async function seed() {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI);
-    console.log(`Connected to MongoDB: ${conn.connection.host}/${conn.connection.name}`);
+    console.log(`\n✓ Connected to MongoDB @ ${conn.connection.host}/${conn.connection.name}`);
 
+    // Reset option
     if (process.argv.includes('--reset')) {
       await Voter.deleteMany({});
-      console.log('Cleared old voter records');
+      console.log('✓ Cleared old voter records');
     }
 
-    console.log(`Preparing to insert ${TOTAL_VOTERS} voters...`);
+    console.log(`\n Inserting ${TOTAL_VOTERS} voters...`);
 
-    // use unordered insert to skip any accidental duplicates
     const result = await Voter.insertMany(voters, { ordered: false });
-    console.log(`Successfully inserted ${result.length} voter records.`);
+    console.log(` Inserted ${result.length} voters successfully`);
 
     const count = await Voter.countDocuments();
-    console.log(`Current total voters in DB: ${count}`);
+    console.log(` Total voters now in DB: ${count}`);
 
     await mongoose.disconnect();
-    console.log('MongoDB disconnected');
+    console.log(' MongoDB disconnected cleanly\n');
     process.exit(0);
+
   } catch (err) {
-    console.error('Error during seeding:', err.message);
+    console.error('\n Error during seeding:', err.message);
+
     if (err.writeErrors) {
-      console.error('Sample writeErrors:', err.writeErrors.slice(0, 3).map(e => e.errmsg));
+      console.log('\nSample write errors:');
+      err.writeErrors.slice(0, 3).forEach(e => console.log(' -', e.errmsg));
     }
+
     process.exit(1);
   }
 }

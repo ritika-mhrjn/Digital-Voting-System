@@ -66,7 +66,6 @@ const verifyVoter = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
-
 /**
  * POST /api/voter/import-csv
  * Imports voter registry data from a CSV file.

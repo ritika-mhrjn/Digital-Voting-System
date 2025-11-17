@@ -50,7 +50,8 @@ export const getPosts = async () => {
     return response.data;
   } catch (error) {
     console.error("Failed to fetch posts:", error.response?.data || error.message);
-    throw error;
+    // Return empty array instead of throwing to prevent app crash
+    return [];
   }
 };
 
@@ -80,6 +81,44 @@ export const deletePost = async (postId) => {
     return response.data;
   } catch (error) {
     console.error("Failed to delete post:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// USER PROFILE  
+export const updateUserProfile = async (userId, updates) => {
+  try {
+    const response = await axios.put(`${API_BASE}/users/${userId}`, updates);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to update user profile:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const getUserProfile = async (userId) => {
+  try {
+    const response = await axios.get(`${API_BASE}/users/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to fetch user profile:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const uploadProfileImage = async (userId, imageFile) => {
+  try {
+    const formData = new FormData();
+    formData.append('profilePic', imageFile);
+
+    const response = await axios.post(`${API_BASE}/users/${userId}/profile-pic`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Failed to upload profile image:", error.response?.data || error.message);
     throw error;
   }
 };

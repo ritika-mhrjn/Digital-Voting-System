@@ -31,7 +31,7 @@ const biometricRoutes = require('./routes/biometrics.js');
 const postRoutes = require('./routes/postRoutes.js');
 const adminRoutes = require('./routes/admin.js');
 const contactRoutes = require("./routes/contact.js");
-
+const userRoutes = require("./routes/users.js");
 dotenv.config();
 
 // Initialize app and connect DB
@@ -97,6 +97,7 @@ app.use('/api/biometrics', biometricRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/admin', adminRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/users", userRoutes);
 // 404 handler
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
 
