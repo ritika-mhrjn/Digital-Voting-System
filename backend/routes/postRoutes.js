@@ -17,8 +17,6 @@ router.put('/:postId', postController.updatePost);
 router.delete('/:postId', postController.deletePost);
 
 
-
-
 // POST /api/posts/:postId/reactions
 router.post('/:postId/reactions', postController.addReaction);
 

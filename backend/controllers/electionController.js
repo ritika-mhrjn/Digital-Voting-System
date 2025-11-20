@@ -16,21 +16,14 @@ function computeStatus(startDate, endDate) {
   return 'ongoing';
 }
 
-/** Validate objectId */
+/* Validate objectId /
 function isValidId(id) {
   return mongoose.Types.ObjectId.isValid(id);
 }
 
 // --- Controller Functions ---
 
-/**
- * POST /api/election 
- * body: {
- * title, description, startDate, endDate,
- * candidates: [{ name, party }...],
- * eligibleVoterIds?: [string]
- * }
- */
+/*POST /api/election body: {title, description, startDate, endDate,candidates: [{ name, party }...],eligibleVoterIds?: [string]}*/
 const createElection = async (req, res) => {
   try {
     const { title, description, startDate, endDate, candidates = [], eligibleVoterIds = [] } = req.body;
@@ -68,6 +61,7 @@ const createElection = async (req, res) => {
       status,
       createdBy: req.user?.id || req.user?._id,
       eligibleVoterIds,
+      public: req.body.public
     });
 
     // Create candidates tied to this election
@@ -96,10 +90,7 @@ const createElection = async (req, res) => {
   }
 };
 
-/**
- * GET /api/election
- * query: status? = scheduled|ongoing|completed
- */
+/*GET /api/electionquery: status? = scheduled|ongoing|completed*/
 const getElections = async (req, res) => {
   try {
     const { status } = req.query;
@@ -132,9 +123,7 @@ const getElections = async (req, res) => {
   }
 };
 
-/**
- * GET /api/election/:id
- */
+/*GET /api/election/:id*/
 const getElectionById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -182,10 +171,7 @@ async function deleteElection(req, res) {
     res.status(500).json({ error: "Server error" });
   }
 }
-/**
- * PATCH /api/election/:id/end
- * Ends an election immediately (admin/committee)
- */
+/*PATCH /api/election/:id/endEnds an election immediately (admin/committee)*/
 const endElection = async (req, res) => {
   try {
     const { id } = req.params;
