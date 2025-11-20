@@ -16,7 +16,7 @@ const router = express.Router();
  */
 
 // Add new candidate (only admin or committee)
-router.post("/add", protect, committeeOrAdmin, addCandidate);
+router.post("/", protect, committeeOrAdmin, addCandidate);
 
 //  Get all candidates (public access)
 router.get("/", getAllCandidates);
