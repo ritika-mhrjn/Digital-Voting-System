@@ -10,9 +10,6 @@ const AI_PREDICTION_URL = process.env.AI_PREDICTION_URL;
 const asId = (id) =>
   mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id;
 
-// -----------------------------------------
-// GET ALL POSTS (populated + sorted)
-// -----------------------------------------
 exports.getPosts = async (req, res) => {
   try {
     const posts = await Post.find()
@@ -28,9 +25,7 @@ exports.getPosts = async (req, res) => {
   }
 };
 
-// -----------------------------------------
-// CREATE POST
-// -----------------------------------------
+
 exports.createPost = async (req, res) => {
   try {
     // Automatically assign logged-in user as author
@@ -54,9 +49,6 @@ exports.createPost = async (req, res) => {
   }
 };
 
-// -----------------------------------------
-// UPDATE POST
-// -----------------------------------------
 exports.updatePost = async (req, res) => {
   try {
     const updated = await Post.findByIdAndUpdate(req.params.postId, req.body, {
@@ -72,10 +64,6 @@ exports.updatePost = async (req, res) => {
     return res.status(400).json({ success: false, error: "Failed to update post" });
   }
 };
-
-// -----------------------------------------
-// DELETE POST
-// -----------------------------------------
 exports.deletePost = async (req, res) => {
   try {
     await Post.findByIdAndDelete(req.params.postId);
@@ -86,9 +74,6 @@ exports.deletePost = async (req, res) => {
   }
 };
 
-// -----------------------------------------
-// ADD REACTION
-// -----------------------------------------
 exports.addReaction = async (req, res) => {
   try {
     const postId = req.params.postId;
@@ -146,10 +131,6 @@ exports.addReaction = async (req, res) => {
     return res.status(500).json({ error: "Failed to add reaction" });
   }
 };
-
-// -----------------------------------------
-// ADD COMMENT
-// -----------------------------------------
 exports.addComment = async (req, res) => {
   try {
     const postId = req.params.postId;

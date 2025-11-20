@@ -1,32 +1,61 @@
 const Candidate = require('../models/Candidate.js');
+const bcrypt = require('bcrypt');
 
 // Add new candidate
 const addCandidate = async (req, res) => {
   try {
-    const { fullName, partyName, manifesto, age, gender, position, photo } = req.body;
-
-    if (!fullName || !partyName || !age || !gender || !position) {
-      return res.status(400).json({ message: 'All required fields must be filled.' });
-    }
-
-    const candidate = new Candidate({
+    const {
       fullName,
+      email,
+      password,
       partyName,
       manifesto,
       age,
       gender,
       position,
       photo,
-      createdBy: req.user ? req.user._id : null, // optional: set after auth
+      politicalSign
+    } = req.body;
+
+    // Validate required fields
+    if (!fullName || !email || !password || !partyName || !age || !gender || !position) {
+      return res.status(400).json({ message: 'All required fields must be filled.' });
+    }
+
+    // Check duplicate email
+    const existing = await Candidate.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: 'Email already used by another candidate.' });
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const candidate = new Candidate({
+      fullName,
+      email,
+      password: hashedPassword,
+      partyName,
+      manifesto,
+      age,
+      gender,
+      position,
+      photo: photo || '',
+      politicalSign: politicalSign || '',
+      createdBy: req.user ? req.user._id : null // optional: set after auth
     });
 
     await candidate.save();
-    res.status(201).json({ message: 'Candidate added successfully!', candidate });
+    res.status(201).json({
+      message: 'Candidate added successfully!',
+      candidate
+    });
   } catch (error) {
     console.error('Error adding candidate:', error);
     res.status(500).json({ message: 'Server error. Please try again.' });
   }
 };
+
 
 // Get all candidates
 const getAllCandidates = async (req, res) => {
@@ -37,6 +66,7 @@ const getAllCandidates = async (req, res) => {
     res.status(500).json({ message: 'Error fetching candidates.' });
   }
 };
+
 
 // Get candidate by ID
 const getCandidateById = async (req, res) => {
@@ -51,42 +81,56 @@ const getCandidateById = async (req, res) => {
   }
 };
 
+
 // Update candidate
 const updateCandidate = async (req, res) => {
   try {
-    const updatedCandidate = await Candidate.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const updates = { ...req.body };
+
+    // If updating password, hash it
+    if (updates.password) {
+      updates.password = await bcrypt.hash(updates.password, 10);
+    }
+
+    const updatedCandidate = await Candidate.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }
+    );
+
     if (!updatedCandidate) {
       return res.status(404).json({ message: 'Candidate not found.' });
     }
-    res.status(200).json({ message: 'Candidate updated successfully.', updatedCandidate });
+
+    res.status(200).json({
+      message: 'Candidate updated successfully.',
+      updatedCandidate
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error updating candidate.' });
   }
 };
 
+
 // Delete candidate
 const deleteCandidate = async (req, res) => {
   try {
-    // FindByIdAndDelete returns the document before deletion, or null if not found
-    const deleted = await Candidate.findByIdAndDelete(req.params.id); 
+    const deleted = await Candidate.findByIdAndDelete(req.params.id);
+
     if (!deleted) {
       return res.status(404).json({ message: 'Candidate not found.' });
     }
+
     res.status(200).json({ message: 'Candidate deleted successfully.' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting candidate.' });
   }
 };
-
-// --- CommonJS Export ---
-
+// Export (CommonJS)
 module.exports = {
   addCandidate,
   getAllCandidates,
   getCandidateById,
   updateCandidate,
-  deleteCandidate,
+  deleteCandidate
 };

@@ -1,52 +1,51 @@
-
 const mongoose = require('mongoose');
 
 const candidateSchema = new mongoose.Schema(
   {
-    fullName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    partyName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    manifesto: {
-      type: String,
-      default: '',
-    },
-    age: {
-      type: Number,
-      required: true,
-      min: 18,
-    },
+    fullName: { type: String, required: true, trim: true },
+
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+
+    password: { type: String, required: true, select: false },
+
+    partyName: { type: String, required: true, trim: true },
+
+    manifesto: { type: String, default: '' },
+
+    age: { type: Number, required: true, min: 21 },
+
     gender: {
       type: String,
       enum: ['male', 'female', 'other'],
       required: true,
     },
+
     position: {
       type: String,
-      required: true, // e.g., "President", "Vice-President", etc.
+      required: true,
     },
+
     photo: {
-      type: String, // store image URL (e.g. Cloudinary or local uploads)
+      type: String,
       default: '',
     },
+
+    politicalSign: {
+      type: String, // image URL for political symbol
+      default: '',
+    },
+
     totalVotes: {
       type: Number,
       default: 0,
     },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User', // who added the candidate (admin or electoral committee)
+      ref: 'User',
     },
   },
   { timestamps: true }
 );
 
-const Candidate = mongoose.model('Candidate', candidateSchema);
-
-module.exports= Candidate;
+module.exports = mongoose.model('Candidate', candidateSchema);
