@@ -4,7 +4,7 @@ const translations = {
   en: {
     english: "English",
     nepali: "नेपाली",
-    loginRegister: "Login / Register",
+    loginRegister: "Login",
     welcome: "Welcome to NayaMat",
     nayamat: "Your voice matters. Participate in a secure, transparent, and easy to use digital voting system. Democracy is now at your fingertips. Every vote counts, and every citizen has the power to shape the future. Join a community of responsible voters and help build a fairer, more inclusive, and connected society for everyone.",
     nayamatfooter: " © 2025 Nayamat Nepal. All Rights Reserved.",
@@ -77,7 +77,7 @@ const translations = {
     ],
 
     aboutNayamat: "About NayaMat - A Digital Voting System",
-    about: "Welcome to our Digital Voting System — a secure, transparent, and user-friendly platform designed to make voting simple, efficient, and trustworthy. Our mission is to revolutionize the way people participate in elections by combining modern technology with democratic values. Our system ensures that every individual's voice is heard, every vote is protected, and every result is delivered with integrity. We believe in empowering people through innovation because democracy thrives when it is accessible to all.",
+    about: "Welcome to our Digital Voting System. A secure, transparent, and user-friendly platform designed to make voting simple, efficient, and trustworthy. Our mission is to revolutionize the way people participate in elections by combining modern technology with democratic values. Our system ensures that every individual's voice is heard, every vote is protected, and every result is delivered with integrity. We believe in empowering people through innovation because democracy thrives when it is accessible to all.",
     aim: "What We Aim For",
     aimPart: " We aim to eliminate barriers in traditional voting systems by ensuring accessibility, accuracy, and data integrity. Every vote matters, and we are committed to making sure each one is counted with the highest level of security and fairness. Our system is designed to promote trust, transparency, and inclusivity, empowering every voter to confidently take part in shaping a better future.",
     secure: "Secure",
@@ -135,7 +135,7 @@ const translations = {
  np: {
     english: "अंग्रेजी",
     nepali: "नेपाली",
-    loginRegister: "लगइन / दर्ता",
+    login: "लगइन",
     welcome: "नयाँमतमा स्वागत छ",
     nayamat: "तपाईंको आवाज महत्वपूर्ण छ। सुरक्षित, पारदर्शी, र प्रयोग गर्न सजिलो डिजिटल मतदान प्रणालीमा भाग लिनुहोस्। लोकतन्त्र अब तपाईंको औंलाको टोकाइमा। प्रत्येक मत गन्तव्यमा गयो र प्रत्येक नागरिकले भविष्य निर्माण गर्ने शक्ति राख्दछ। जिम्मेवार मतदाताहरूको समुदायमा सामेल हुनुहोस् र सबैका लागि न्यायोचित, समावेशी, र जडित समाज निर्माणमा योगदान दिनुहोस्।",
     nayamatfooter: " © 2025 नयाँमत नेपाल। सर्वाधिकार सुरक्षित।",

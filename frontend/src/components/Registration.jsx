@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Shield } from "lucide-react";
+import { ArrowLeft, User, Shield, Eye, EyeOff } from "lucide-react"; 
 import { useLanguage } from "../contexts/LanguageContext";
 import NepaliDatePicker from "@sbmdkl/nepali-datepicker-reactjs";
 import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
@@ -33,6 +33,8 @@ const Registration = () => {
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [biometricData, setBiometricData] = useState(null);
+  const [showPassword, setShowPassword] = useState(false); 
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false); 
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -72,8 +74,6 @@ const Registration = () => {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
-
-
 
   const handleDateChange = (value) => {
     setFormData((prev) => ({ ...prev, dateOfBirth: value || "" }));
@@ -275,37 +275,62 @@ const Registration = () => {
                 </div>
 
                 {/* Password */}
-                <div className="md:col-span-2">
+                <div className="md:col-span-2 relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t("password")} <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password || ""}
-                    onChange={handleInputChange}
-                    placeholder={t("passwordPlaceholder")}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password || ""}
+                      onChange={handleInputChange}
+                      placeholder={t("passwordPlaceholder")}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all pr-10"
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <Eye className="w-5 h-5" />
+                      ) : (
+                        <EyeOff className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
                   {formErrors.password && <p className="text-red-500 text-sm mt-1">{formErrors.password}</p>}
                 </div>
 
                 {/* Confirm Password */}
-                <div className="md:col-span-2">
+                <div className="md:col-span-2 relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t("confirmPassword")} <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword || ""}
-                    onChange={handleInputChange}
-                    placeholder={t("confirmPasswordPlaceholder")}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      name="confirmPassword"
+                      value={formData.confirmPassword || ""}
+                      onChange={handleInputChange}
+                      placeholder={t("confirmPasswordPlaceholder")}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all pr-10"
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <Eye className="w-5 h-5" />
+                      ) : (
+                        <EyeOff className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
                   {formErrors.confirmPassword && <p className="text-red-500 text-sm mt-1">{formErrors.confirmPassword}</p>}
                 </div>
-
 
                 {/* Role */}
                 <div className="md:col-span-2">
@@ -473,9 +498,3 @@ const Registration = () => {
 };
 
 export default Registration;
-
-
-
-
-
-
