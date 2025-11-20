@@ -39,35 +39,78 @@ const app = express();
 connectDB();
 // Middleware
 app.use(express.json({ limit: '10mb' }));
-// Allow the frontend dev server origins (support both 5173 and 5174) and any FRONTEND_URL from env
-const FRONTEND_URLS = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173,http://localhost:5174').split(',');
+
+// ✅ CORS configuration: allow localhost:3000, 5173, 5174 and handle preflight properly
+// CORS configuration
+const FRONTEND_URLS = (process.env.FRONTEND_ORIGINS ||
+  'http://localhost:3000,http://localhost:5173,http://localhost:5174')
+  .split(',')
+  .map(url => url.trim().replace(/\/$/, '')); // remove trailing slash
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (e.g., curl, mobile)
-      if (!origin) return callback(null, true);
-      if (FRONTEND_URLS.indexOf(origin) !== -1) {
+      // allow apps like curl or server-to-server
+      if (!origin) {
+        console.debug('[CORS] No origin (curl/server-to-server), allowing');
         return callback(null, true);
       }
-      // allow explicitly configured FRONTEND_URL if provided
-      if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) return callback(null, true);
-      // otherwise reject CORS
-      return callback(new Error('Not allowed by CORS'));
+
+      const cleanedOrigin = origin.replace(/\/$/, '');
+      console.debug('[CORS] Checking origin:', { origin, cleaned: cleanedOrigin, allowed: FRONTEND_URLS });
+
+      if (FRONTEND_URLS.includes(cleanedOrigin)) {
+        console.debug('[CORS] ✅ Origin allowed:', cleanedOrigin);
+        return callback(null, true);
+      }
+
+      // handle single env FRONTEND_URL
+      if (process.env.FRONTEND_URL &&
+          cleanedOrigin === process.env.FRONTEND_URL.replace(/\/$/, '')) {
+        console.debug('[CORS] ✅ Origin allowed (env FRONTEND_URL):', cleanedOrigin);
+        return callback(null, true);
+      }
+
+      console.warn("❌ CORS BLOCKED ORIGIN:", origin, "Allowed:", FRONTEND_URLS);
+      return callback(new Error("Not allowed by CORS"));
     },
+
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 200,
   })
 );
+
+// Explicitly handle OPTIONS for all routes
+
+
 app.use(helmet());
 app.use(morgan('dev'));
 
-// Rate limiter
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100,
-    message: 'Too many requests from this IP, try again later.',
-  })
-);
+// Rate limiter - relaxed for development with localhost bypass
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Relaxed for development (quality-check polling needs this)
+  message: 'Too many requests from this IP, try again later.',
+  skip: (req, res) => {
+    // Skip rate limiting for localhost
+    const ip = req.ip || req.connection.remoteAddress || '';
+    const isLocalhost = ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || 
+           ip.includes('127.0.0.1') || ip.includes('localhost') ||
+           ip.includes('::ffff:127.0.0.1');
+    
+    // ✅ IMPORTANT: Always skip rate limiting for CORS preflight OPTIONS requests
+    const isOptions = req.method === 'OPTIONS';
+    
+    return isLocalhost || isOptions;
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(globalLimiter);
 
 // Basic routes
 app.get('/', (req, res) =>

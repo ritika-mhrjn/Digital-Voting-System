@@ -450,14 +450,19 @@ class BiometricController {
         return res.status(400).json({ success: false, message: 'Images array is required' });
       }
 
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ success: false, message: 'User not found' });
+      // ✅ RELAXED: Don't require user to exist yet (may be called during registration before User is created)
+      // Instead, we just forward to microservice and store in Biometric collection
+      let user = null;
+      try {
+        user = await User.findById(userId);
+      } catch (err) {
+        logger.warn('User lookup failed for batch register (will proceed without user)', { userId, err: err.message });
       }
 
       const results = [];
       const templateIds = [];
 
+      // Forward images to microservice for processing
       for (const image_data of images) {
         try {
           const templateId = randomUUID();
@@ -468,7 +473,7 @@ class BiometricController {
             try {
               await axios.post(`${BIOMETRIC_SERVICE_URL}/api/face/register`, { user_id: userId, image_data: img }, { timeout: 30000 });
             } catch (e) {
-              logger.warn('Background batch register failed (ignored)', { err: e.message, userId, templateId: tid });
+              logger.warn('Background batch register to microservice failed (ignored)', { err: e.message, userId, templateId: tid });
             }
           })(image_data, templateId);
         } catch (err) {
@@ -479,12 +484,20 @@ class BiometricController {
 
       const anySuccess = results.some(r => r.success);
 
-      if (anySuccess) {
-        user.biometricRegistered = true;
-        user.biometricType = 'face';
-        user.biometricRegistrationDate = new Date();
-        await user.save();
+      // Update User if it exists
+      if (anySuccess && user) {
+        try {
+          user.biometricRegistered = true;
+          user.biometricType = 'face';
+          user.biometricRegistrationDate = new Date();
+          await user.save();
+        } catch (userUpdateErr) {
+          logger.warn('Failed to update User biometric flags (batch)', { err: userUpdateErr.message, userId });
+        }
+      }
 
+      // Always update Biometric collection (upsert) with metadata
+      if (anySuccess) {
         const updateObj = {
           $set: { faceRegistered: true, registrationDate: new Date(), faceImageSample: images && images.length ? images[0] : undefined }
         };
@@ -495,8 +508,9 @@ class BiometricController {
 
         try {
           await Biometric.findOneAndUpdate({ userId }, updateObj, { upsert: true });
+          logger.info('Biometric metadata persisted (batch)', { userId, templateCount: templateIds.length });
         } catch (persistErr) {
-          logger.warn('Failed to persist face templates (batch)', { err: persistErr.message });
+          logger.warn('Failed to persist face templates (batch)', { err: persistErr.message, userId });
         }
       }
 

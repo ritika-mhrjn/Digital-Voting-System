@@ -292,7 +292,7 @@ const LiveFaceCapture = ({ onCapture, onError, qualityThreshold = 0.75 }) => {
     };
 
     tick();
-    const iv = setInterval(tick, 1200);
+    const iv = setInterval(tick, 2000); // 2-second interval to reduce server load and rate limiting issues
     return () => {
       isCancelled = true;
       clearInterval(iv);
