@@ -42,74 +42,67 @@ const ContactUs = () => {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center bg-white">
-            {/* Navbar */}
-            <nav className="flex justify-between items-center px-6 md:px-10 py-2 bg-blue-50 shadow-md rounded-b-lg w-full">
-                <div className="flex items-center">
-                    <img
-                        src="/logo.png"
-                        alt="Voting System Logo"
-                        className="h-20 w-auto object-contain cursor-pointer"
-                        onClick={() => navigate("/")}
-                    />
-                </div>
+        <div className="min-h-screen flex flex-col items-center bg-gray-50">
+            {/* Header */}
+            <header className="fixed top-0 left-0 right-0 z-50 bg-blue-50 shadow-md">
+                <nav className="flex flex-col md:flex-row justify-between items-center px-4 md:px-10 py-3">
+                    {/* Logo */}
+                    <div className="flex items-center mb-3 md:mb-0">
+                        <img
+                            src="/logo.png"
+                            alt="Voting System Logo"
+                            className="h-16 md:h-20 w-auto object-contain cursor-pointer"
+                            onClick={() => navigate("/")}
+                        />
+                    </div>
 
-                <div className="hidden md:flex items-center space-x-10 font-semibold">
-                    <button
-                        onClick={() => navigate("/")}
-                        className={`text-lg transition ${
-                            location.pathname === "/" ? "text-blue-500" : "text-gray-900 hover:text-blue-500"
-                        }`}
-                    >
-                        {t("home")}
-                    </button>
-                    <button
-                        onClick={() => navigate("/about")}
-                        className={`text-lg transition ${
-                            location.pathname === "/about" ? "text-blue-500" : "text-gray-900 hover:text-blue-500"
-                        }`}
-                    >
-                        {t("aboutUs")}
-                    </button>
-                    <button
-                        onClick={() => navigate("/contact")}
-                        className={`text-lg transition ${
-                            location.pathname === "/contact" ? "text-blue-500" : "text-gray-900 hover:text-blue-500"
-                        }`}
-                    >
-                        {t("contactUs")}
-                    </button>
-                </div>
+                    <div className="flex items-center space-x-4 md:space-x-10 font-semibold mb-3 md:mb-0">
+                        <button
+                            onClick={() => navigate("/")}
+                            className={`text-sm md:text-lg transition ${location.pathname === "/" ? "text-blue-500" : "text-gray-900 hover:text-blue-500"}`}>
+                            {t("home")}
+                        </button>
+                        <button
+                            onClick={() => navigate("/about")}
+                            className={`text-sm md:text-lg transition ${location.pathname === "/about" ? "text-blue-500" : "text-gray-900 hover:text-blue-500"}`}>
+                            {t("aboutUs")}
+                        </button>
+                        <button
+                            onClick={() => navigate("/contact")}
+                            className={`text-sm md:text-lg transition ${location.pathname === "/contact" ? "text-blue-500" : "text-gray-900 hover:text-blue-500" }`}>
+                            {t("contactUs")}
+                        </button>
+                    </div>
 
-                <div className="flex items-center space-x-3">
-                    <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="px-3 py-1 border border-gray-300 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-300 transition font-medium"
-                    >
-                        <option value="en">{t("english")}</option>
-                        <option value="np">{t("nepali")}</option>
-                    </select>
+                    <div className="flex items-center space-x-3">
+                        <select
+                            value={language}
+                            onChange={(e) => setLanguage(e.target.value)}
+                            className="px-2 py-1 md:px-3 md:py-1 border border-gray-300 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-300 transition font-medium text-sm md:text-base"
+                        >
+                            <option value="en">{t("english")}</option>
+                            <option value="np">{t("nepali")}</option>
+                        </select>
 
-                    <button
-                        onClick={() => navigate("/login")}
-                        className="px-3 py-1 border border-gray-300 text-gray-900 rounded-lg hover:bg-gray-300 transition font-medium"
-                    >
-                        {t("loginRegister")}
-                    </button>
-                </div>
-            </nav>
+                        <button
+                            onClick={() => navigate("/login")}
+                            className="px-2 py-1 md:px-3 md:py-1 border border-gray-300 text-gray-900 rounded-lg hover:bg-gray-300 transition font-medium text-sm md:text-base"
+                        >
+                            {t("loginRegister")}
+                        </button>
+                    </div>
+                </nav>
+            </header>
 
             {/* Contact form */}
-            <main className="flex flex-col items-center w-full flex-grow mt-2 px-4">
+            <main className="flex flex-col items-center w-full flex-grow pt-32 px-4 mt-0">
                 <p className="text-gray-700 text-center max-w-md mb-10">
                     {t("ques")}
                 </p>
-
                 <form
                     onSubmit={handleSubmit}
-                    className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg mb-16"
-                >
+                    className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg mb-16">
+                        
                     {error && (
                         <p className="text-red-500 text-sm text-center mb-4">{error}</p>
                     )}

@@ -10,10 +10,8 @@ const { protect, committeeOrAdmin } = require("../middleware/authMiddleware.js")
 
 const router = express.Router();
 
-/**
- * CANDIDATE ROUTES
- * Base path: /api/candidates
- */
+/**CANDIDATE ROUTES
+ Base path: /api/candidates*/
 
 // Add new candidate (only admin or committee)
 router.post("/", protect, committeeOrAdmin, addCandidate);

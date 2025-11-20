@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react"; // Import Eye and EyeOff icons
 import { useLanguage } from "../contexts/LanguageContext";
 import { loginUser } from "../api/endpoints";
 import { useAuth } from "../contexts/AuthContext";
@@ -19,6 +19,7 @@ const Login = () => {
 
   const [errors, setErrors] = useState({});
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false); 
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -58,8 +59,6 @@ const Login = () => {
       const user = res?.data;
 
       console.log("user: ", user);
-
-
 
       if (!token || !user) {
         throw new Error("Invalid response from server");
@@ -135,18 +134,31 @@ const Login = () => {
         </div>
 
         {/* Password */}
-        <div>
+        <div className="relative">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {t("password")} <span className="text-red-500">*</span>
           </label>
-          <input
-            type="password"
-            name="password"
-            value={credentials.password}
-            onChange={handleChange}
-            placeholder={t("passwordPlaceholder")}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={credentials.password}
+              onChange={handleChange}
+              placeholder={t("passwordPlaceholder")}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all pr-10"
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? (
+                <Eye className="w-5 h-5" />
+              ) : (
+                <EyeOff className="w-5 h-5" />
+              )}
+            </button>
+          </div>
           {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
         </div>
 
@@ -179,14 +191,6 @@ const Login = () => {
           Don't have an account?{" "}
           <Link
             to="/register"
-            className="text-blue-600 underline hover:text-blue-800">
-            {t("register")}
-          </Link>
-        </p>
-        <p className="text-left text-sm">
-          Are you a Candidate?{" "}
-          <Link
-            to="/candidate-registration"
             className="text-blue-600 underline hover:text-blue-800">
             {t("register")}
           </Link>

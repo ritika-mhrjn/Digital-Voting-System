@@ -121,15 +121,15 @@ app.get('/api/health', (req, res) =>
   res.status(200).json({ status: 'OK', message: 'Backend is healthy' })
 );
 
-// Example in Express
-app.get("/api/posts", (req, res) => {
-  res.send(posts); // if this exists
-});
+// // Example in Express
+// app.get("/api/posts", (req, res) => {
+//   res.send(posts); // if this exists
+// });
 
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/candidates', candidateRoutes);
-app.use('/api/election', electionRoutes);
+app.use('/api/elections', electionRoutes);
 app.use('/api/results', resultsRoutes);
 app.use('/api/prediction', predictionRoutes);
 app.use('/api/voters', VoterRoutes);

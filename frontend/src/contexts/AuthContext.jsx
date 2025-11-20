@@ -1,6 +1,9 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
-import  jwtDecode  from "jwt-decode";
+
+import { jwtDecode } from "jwt-decode";
+import { updateUserProfile } from "../api/endpoints";
+
+
 
 const AuthContext = createContext(null);
 
@@ -14,18 +17,14 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => {
     const storedToken = localStorage.getItem("token") || sessionStorage.getItem("token");
     
-    // Validate token on initial load
     if (storedToken) {
       try {
         const decoded = jwtDecode(storedToken);
         const currentTime = Date.now() / 1000;
         
         if (decoded.exp && decoded.exp > currentTime) {
-          // Set axios header immediately for initial load
-          axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
           return storedToken;
         } else {
-          // Token expired, clear storage
           localStorage.removeItem("token");
           localStorage.removeItem("user");
           sessionStorage.removeItem("token");
@@ -33,7 +32,6 @@ export const AuthProvider = ({ children }) => {
           return null;
         }
       } catch (error) {
-        // Invalid token, clear storage
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         sessionStorage.removeItem("token");
@@ -49,7 +47,6 @@ export const AuthProvider = ({ children }) => {
     if (storedUser) {
       const userData = JSON.parse(storedUser);
       
-      // If we have a token but user data might be missing role, try to decode token
       const storedToken = localStorage.getItem("token") || sessionStorage.getItem("token");
       if (!userData.role && storedToken) {
         try {
@@ -67,27 +64,14 @@ export const AuthProvider = ({ children }) => {
 
   const [loading] = useState(false);
 
-  // ✅ Automatically set token header
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    } else {
-      delete axios.defaults.headers.common["Authorization"];
-    }
-  }, [token]);
-
-  // ✅ Updated Login function with token decoding
   const login = (newToken, userInfo, persist = true) => {
     try {
-      // Decode the token to get the actual user data including role
       const decoded = jwtDecode(newToken);
       
-      // Create user object with data from both token and userInfo
-      // The token should contain the most up-to-date role information
       const userData = {
         ...userInfo,
         id: decoded.id || userInfo?.id,
-        role: decoded.role || userInfo?.role, // Priority to token role
+        role: decoded.role || userInfo?.role,
         fullName: userInfo?.fullName || decoded.fullName,
         email: userInfo?.email || decoded.email
       };
@@ -98,8 +82,6 @@ export const AuthProvider = ({ children }) => {
       if (persist) {
         localStorage.setItem("token", newToken);
         localStorage.setItem("user", JSON.stringify(userData));
-        
-        // Also store individual fields for easy access if needed
         localStorage.setItem("userRole", userData.role);
         if (userData.email) localStorage.setItem("userEmail", userData.email);
         if (userData.voterId) localStorage.setItem("voterId", userData.voterId);
@@ -109,12 +91,8 @@ export const AuthProvider = ({ children }) => {
         sessionStorage.setItem("user", JSON.stringify(userData));
       }
 
-      // Set axios default header
-      axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
-
     } catch (error) {
       console.error('Error during login:', error);
-      // Fallback: use the original userInfo if token decoding fails
       setToken(newToken);
       setUser(userInfo);
 
@@ -128,12 +106,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ✅ Logout function
   const logout = () => {
     setToken(null);
     setUser(null);
     
-    // Clear all auth-related items from storage
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("userEmail");
@@ -145,36 +121,50 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("user");
     
-    // Remove Authorization header
-    delete axios.defaults.headers.common["Authorization"];
-    
-    // Reload to clear any cached state
     window.location.href = "/login";
   };
 
-  // ✅ Update Bio
-  const updateBio = (newBio) => {
-    setUser((prev) => {
-      const updated = { ...prev, bio: newBio };
-      localStorage.setItem("user", JSON.stringify(updated));
-      return updated;
-    });
+  const updateUser = async (updates) => {
+    try {
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      
+      // Update localStorage
+      const storage = localStorage.getItem("token") ? localStorage : sessionStorage;
+      storage.setItem("user", JSON.stringify(updatedUser));
+      
+      if (updates.role) localStorage.setItem("userRole", updates.role);
+      if (updates.email) localStorage.setItem("userEmail", updates.email);
+      if (updates.voterId) localStorage.setItem("voterId", updates.voterId);
+      if (updates.fullName) localStorage.setItem("fullName", updates.fullName);
+      if (updates.profilePic) localStorage.setItem("profilePic", updates.profilePic);
+      
+      if (user.id && Object.keys(updates).length > 0) {
+        await updateUserProfile(user.id, updates);
+      }
+      
+      return updatedUser;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
   };
 
-  // ✅ Update Profile Pic
-  const updateProfilePic = (newUrl) => {
-    setUser((prev) => {
-      const updated = { ...prev, profilePic: newUrl };
-      localStorage.setItem("user", JSON.stringify(updated));
-      return updated;
-    });
+  const updateBio = async (newBio) => {
+    return await updateUser({ bio: newBio });
   };
 
-  // Update Political Sign
+  const updateProfilePic = async (newUrl) => {
+    return await updateUser({ profilePic: newUrl });
+  };
+
   const updatePoliticalSign = async (url) => {
-      setUser((u) => ({ ...u, politicalSign: url }));
-      await updateUserProfile(user.id, { politicalSign: url });
-    };
+    return await updateUser({ politicalSign: url });
+  };
+
+  const updateSignName = async (signName) => {
+    return await updateUser({ signName });
+  };
 
   return (
     <AuthContext.Provider
@@ -184,9 +174,12 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         logout,
+        updateUser, 
         updateBio,
         updateProfilePic,
         updatePoliticalSign,
+        updateSignName,
+        setUser 
       }}
     >
       {children}

@@ -88,6 +88,7 @@ const updateVoter = async (req, res) => {
 };
 
 
+
 // Delete voter
 const deleteVoter = async (req, res) => {
   try {

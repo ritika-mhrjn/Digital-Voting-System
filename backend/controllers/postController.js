@@ -10,6 +10,7 @@ const AI_PREDICTION_URL = process.env.AI_PREDICTION_URL;
 const asId = (id) =>
   mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id;
 
+
 exports.getPosts = async (req, res) => {
   try {
     const posts = await Post.find()
@@ -64,6 +65,7 @@ exports.updatePost = async (req, res) => {
     return res.status(400).json({ success: false, error: "Failed to update post" });
   }
 };
+
 exports.deletePost = async (req, res) => {
   try {
     await Post.findByIdAndDelete(req.params.postId);
