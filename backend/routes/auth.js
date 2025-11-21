@@ -3,8 +3,10 @@ const axios = require('axios');
 const generateToken = require("../utils/generateToken.js");
 const User = require("../models/User.js");
 const Voter = require("../models/Voter.js");
+const Candidate = require("../models/Candidate.js")
 const { protect } = require("../middleware/authMiddleware.js");
 const { roleMiddleware } = require("../middleware/roleMiddleware.js");
+const bcrypt = require('bcrypt')
 
 const router = express.Router();
 
@@ -203,13 +205,22 @@ router.post("/login", async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: req.t?.("auth.login_success") || "Login successful",
+      message: req.t?.("auth.login_success"),
       data: {
         id: user._id,
         fullName: user.fullName,
         email: user.email,
         voterId: user.voterId,
         role: user.role,
+        dateOfBirth: user.dateOfBirth,
+        phone: user.phone,
+        idType: user.idType,
+        district: user.district,
+        idNumber: user.idNumber,
+        province: user.province,
+        ward: user.ward,
+        bio: user.bio,
+        profilePicture: user.profilePicture,
         token,
       },
     });
@@ -218,6 +229,75 @@ router.post("/login", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: req.t?.("common.server_error") || "Server Error",
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/login
+ * @desc    Login user (only if verified)
+ * @body    { email, password }
+ */
+router.post("/loginCandidate", async (req, res) => {
+  try {
+    const emailNorm = String(req.body.email || "").toLowerCase().trim();
+    const { password } = req.body;
+
+    const user = await Candidate.findOne({ email: emailNorm }).select("+password");
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message:
+          req.t?.("auth.invalid_credentials") ||
+          "Invalid email or password",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password,user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message:
+          req.t?.("auth.invalid_credentials") ||
+          "Invalid email or password",
+      });
+    }
+
+    if (!user.verified) {
+      return res.status(403).json({
+        success: false,
+        message:
+          req.t?.("auth.pending_verification") ||
+          "Your account is pending verification by the Electoral Committee",
+      });
+    }
+
+    const token = generateToken(user._id, user.role);
+
+    return res.status(200).json({
+      success: true,
+      message: req.t?.("auth.login_success"),
+      data: {
+        id:user._id,
+        fullName:user.fullName,
+        email:user.email,
+        partyName:user.partyName,
+        manifesto:user.manifesto,
+        age: user.age,
+        gender: user.gender,
+        position:user.position,
+        photo:user.photo,
+        politicalSign:user.politicalSign,
+        totalVotes:user.totalVotes,
+        createdBy:user.createdBy,
+        token,
+      },
+    });
+  } catch (err) {
+    console.error("LOGIN error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
     });
   }
 });

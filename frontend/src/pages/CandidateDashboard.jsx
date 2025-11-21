@@ -73,6 +73,7 @@ const Navbar = ({ setPage, search, setSearch }) => {
 const PostCard = ({ post, user, onViewMedia, onDelete, onSaveEdit }) => {
   const [editText, setEditText] = useState(post.text);
   const [isEditing, setIsEditing] = useState(false);
+  const candidateData=JSON.parse(localStorage.getItem('user'))
   
   const authorImageErrorRef = useRef(false);
   const mediaImageErrorRef = useRef(false);
@@ -125,10 +126,10 @@ const PostCard = ({ post, user, onViewMedia, onDelete, onSaveEdit }) => {
   // Get author information with multiple fallbacks 
   const getAuthorInfo = () => {
     // Case 1: Author is populated with full object and has profilePic
-    if (post.author && typeof post.author === 'object' && post.author.fullName && post.author.profilePic) {
+    if (post.author && typeof post.author === 'object' && post.author.fullName && post.author.photo) {
       return {
         name: post.author.fullName,
-        pic: post.author.profilePic,
+        pic: post.author.photo,
         initial: getInitial(post.author.fullName)
       };
     }
@@ -324,6 +325,8 @@ const PostCreator = ({ user, posts, setPosts, onPostCreated }) => {
     });
   };
 
+  // console.log(user)
+
   const handlePostSubmit = async (e) => {
     e.preventDefault();
     if (!text.trim() && !selectedMedia) {
@@ -350,9 +353,9 @@ const PostCreator = ({ user, posts, setPosts, onPostCreated }) => {
       // Prepare complete post data with all required fields - FIXED PROFILE PICTURE DATA
       const postData = {
         text: text.trim(),
-        author: user?.id,
-        authorName: user?.fullName,
-        authorPic: user?.profilePic, // This should now contain the actual profile picture
+        author: user.id,
+        authorName: user.fullName,
+        authorPic: user.photo, // This should now contain the actual profile picture
         media: mediaData,
         reactionsCount: 0,
         comments: [],
@@ -374,7 +377,7 @@ const PostCreator = ({ user, posts, setPosts, onPostCreated }) => {
         author: {
           _id: user?.id,
           fullName: user?.fullName,
-          profilePic: user?.profilePic // Ensure profile pic is passed to author object
+          photo: user?.photo // Ensure profile pic is passed to author object
         },
         authorName: newPost.authorName || user?.fullName,
         authorPic: newPost.authorPic || user?.profilePic, // Ensure profile pic is passed
@@ -440,9 +443,9 @@ const PostCreator = ({ user, posts, setPosts, onPostCreated }) => {
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 mb-4">
       <div className="flex items-center gap-3 mb-3">
         {/* Profile picture in PostCreator - FIXED */}
-        {user?.profilePic ? (
+        {user?.photo ? (
           <img 
-            src={user.profilePic} 
+            src={user.photo} 
             alt="profile" 
             className="w-10 h-10 rounded-full object-cover border" 
             onError={(e) => {
@@ -534,30 +537,7 @@ const FeedPage = ({ posts, setPosts, onViewMedia, search, onPostCreated }) => {
       try {
         const data = await getPosts();
         console.log("Fetched posts data:", data);
-        
-        // Ensure posts is always an array and enhance with user data if needed
-        if (Array.isArray(data)) {
-          const enhancedPosts = data.map(post => {
-            // If the post doesn't have proper author data but we have the current user info,
-            // enhance the post data with current user's profile picture
-            if ((!post.author || !post.author.profilePic) && user && post.author === user.id) {
-              return {
-                ...post,
-                author: {
-                  _id: user.id,
-                  fullName: user.fullName,
-                  profilePic: user.profilePic
-                },
-                authorPic: user.profilePic
-              };
-            }
-            return post;
-          });
-          setPosts(enhancedPosts);
-        } else {
-          console.warn("Expected array but got:", typeof data, data);
-          setPosts([]);
-        }
+        setPosts(data)
       } catch (error) {
         console.error("Failed to fetch posts:", error);
         setPosts([]);

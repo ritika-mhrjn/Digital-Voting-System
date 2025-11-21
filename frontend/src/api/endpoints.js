@@ -11,6 +11,16 @@ export const registerUser = async (userData) => {
   }
 };
 
+export const loginCandidate= async(credentials)=>{
+  try {
+    const response = await api.post('/auth/loginCandidate', credentials);
+    return response.data;
+  } catch (error) {
+    console.error("Login failed:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
 export const loginUser = async (credentials) => {
   try {
     const response = await api.post('/auth/login', credentials);
@@ -75,9 +85,9 @@ export const deletePost = async (postId) => {
 };
 
 // Reactions & comments
-export const addReaction = async (postId, reactionData) => {
+export const addReaction = async (postId, userId) => {
   try {
-    const response = await api.post(`/posts/${postId}/reactions`, reactionData);
+    const response = await api.post(`/posts/${postId}/reactions`, {userId:userId});
     return response.data;
   } catch (error) {
     console.error('Failed to add reaction:', error.response?.data || error.message);
@@ -119,14 +129,10 @@ export const getUserProfile = async (userId) => {
 
 export const uploadProfileImage = async (userId, imageFile) => {
   try {
-    const formData = new FormData();
-    formData.append('profilePic', imageFile);
+    // const formData = new FormData();
+    // formData.append('profilePic', imageFile);
 
-    const response = await api.post(`/users/${userId}/profile-pic`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post(`/users/profilePicture/${userId}`, {image: imageFile});
     return response.data;
   } catch (error) {
     console.error("Failed to upload profile image:", error.response?.data || error.message);
@@ -148,6 +154,15 @@ export const getCandidates = async () => {
 export const addCandidate = async (candidateData) => {
   try {
     const response = await api.post('/candidates', candidateData);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to add candidate:", error.response?.data || error.message);
+    throw error;
+  }
+};
+export const addCandidateElectoral = async (candidateData) => {
+  try {
+    const response = await api.post('/candidates/electoral', candidateData);
     return response.data;
   } catch (error) {
     console.error("Failed to add candidate:", error.response?.data || error.message);

@@ -1,5 +1,6 @@
 const Candidate = require('../models/Candidate.js');
 const bcrypt = require('bcrypt');
+const mongoose = require('mongoose');
 
 // Add new candidate
 const addCandidate = async (req, res) => {
@@ -53,6 +54,63 @@ const addCandidate = async (req, res) => {
   } catch (error) {
     console.error('Error adding candidate:', error);
     res.status(500).json({ message: 'Server error. Please try again.' });
+  }
+};
+
+const addCandidateElectoral = async (req, res) => {
+  try {
+    const {
+      fullName,
+      email,
+      password,
+      partyName,
+      manifesto,
+      age,
+      gender,
+      position,
+      photo,
+      politicalSign
+    } = req.body;
+
+    // Validate required fields
+    if (!fullName || !email || !password || !partyName || !age || !gender || !position) {
+      return res.status(400).json({ message: 'All required fields must be filled.' });
+    }
+
+    // Check duplicate email
+    const existing = await Candidate.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: 'Email already used by another candidate.' });
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const candidate = new Candidate({
+      fullName,
+      email,
+      password: hashedPassword,
+      partyName,
+      manifesto,
+      age,
+      gender,
+      position,
+      photo: photo || '',
+      politicalSign: politicalSign || '',
+      verified:true,
+      candidateId: new mongoose.Types.ObjectId(),
+      createdBy: req.user ? req.user._id : null // optional: set after auth
+    });
+
+    await candidate.save();
+    res.status(201).json({
+      message: 'Candidate added successfully!',
+      success:true,
+      data: candidate,
+    });
+  } catch (error) {
+    console.error('Error adding candidate:', error);
+    res.status(500).json({ message: error.message, success:false });
   }
 };
 
@@ -132,5 +190,6 @@ module.exports = {
   getAllCandidates,
   getCandidateById,
   updateCandidate,
-  deleteCandidate
+  deleteCandidate,
+  addCandidateElectoral
 };

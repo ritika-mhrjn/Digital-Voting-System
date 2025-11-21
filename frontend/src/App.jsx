@@ -11,6 +11,7 @@ import CandidateDashboard from "./pages/CandidateDashboard";
 import ElectoralCommitteeDashboard from "./pages/ElectoralCommitteeDashboard";
 import VoterDashboard from "./pages/VoterDashboard";
 import Login from "./pages/Login";
+import LoginCandidate from './pages/LoginCandidate'
 import ProtectedLayout from "./layouts/ProtectedLayout";
 import { AuthProvider } from "./contexts/AuthContext";
 
@@ -24,6 +25,7 @@ function App() {
             <Route path="/" element={<Heropg />} />
             <Route path="/register" element={<Registration />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/loginCandidate" element={<LoginCandidate />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/contact" element={<ContactUs />} />
 

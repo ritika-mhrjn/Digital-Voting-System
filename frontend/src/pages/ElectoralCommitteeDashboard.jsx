@@ -23,7 +23,7 @@ import {
   updateElection,
   deleteElection,
   verifyVoter,
-  addCandidate
+  addCandidateElectoral
 } from "../api/endpoints";
 
 const ElectoralCommitteeDashboard = () => {
@@ -120,6 +120,21 @@ const ElectoralCommitteeDashboard = () => {
     fetchData();
   }, []);
 
+
+  const handleFile=(e)=>{
+    const file = e.target.files[0];
+    console.log(e.target.files)
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = reader.result;
+      // console.log("Base64:", image);
+      const {name}=e.target
+      setCandidateFormData(prev=>({...prev,[name]:image}))
+    };
+    reader.readAsDataURL(file);
+  }
   // Candidate Form Handlers
   const handleCandidateInputChange = (e) => {
     const { name, value } = e.target;
@@ -150,6 +165,9 @@ const ElectoralCommitteeDashboard = () => {
     if (!candidateFormData.partyName.trim()) errors.partyName = "Party name is required";
     if (!candidateFormData.position) errors.position = "Position is required";
     if (!candidateFormData.manifesto.trim()) errors.manifesto = "Manifesto is required";
+    if (!candidateFormData.photo) errors.photo = "Photo is required";
+    if (!candidateFormData.politicalSign) errors.politicalSign = "Political Sign is required";
+
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -172,13 +190,13 @@ const ElectoralCommitteeDashboard = () => {
         partyName: candidateFormData.partyName,
         position: candidateFormData.position,
         manifesto: candidateFormData.manifesto,
-        photo: candidateFormData.photo || "",
-        politicalSign: candidateFormData.politicalSign || ""
+        photo: candidateFormData.photo,
+        politicalSign: candidateFormData.politicalSign
       };
 
       console.log('Creating candidate:', candidatePayload);
 
-      const response = await addCandidate(candidatePayload);
+      const response = await addCandidateElectoral(candidatePayload);
 
       if (response.success || response.data) {
         // Reset form
@@ -828,13 +846,14 @@ const ElectoralCommitteeDashboard = () => {
                             Photo URL
                           </label>
                           <input
-                            type="url"
+                            type="file"
                             name="photo"
-                            value={candidateFormData.photo}
-                            onChange={handleCandidateInputChange}
+                            onChange={handleFile}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter photo URL"
                           />
+                          {formErrors.photo && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.photo}</p>
+                          )}
                         </div>
 
                         {/* Political Sign URL */}
@@ -843,13 +862,15 @@ const ElectoralCommitteeDashboard = () => {
                             Political Symbol URL
                           </label>
                           <input
-                            type="url"
+                            type="file"
                             name="politicalSign"
-                            value={candidateFormData.politicalSign}
-                            onChange={handleCandidateInputChange}
+                            onChange={handleFile}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Enter political symbol URL"
                           />
+                          {formErrors.politicalSign && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.politicalSign}</p>
+                          )}
                         </div>
 
                         {/* Manifesto */}

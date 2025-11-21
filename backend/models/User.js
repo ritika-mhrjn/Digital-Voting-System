@@ -14,6 +14,16 @@ const userSchema = new mongoose.Schema(
       enum: ROLES,
       index: true,
     },
+    profilePicture:{
+      type:String,
+      required:false,
+      default:'/defaultPP.jpg'
+    },
+    bio:{
+      type:String,
+      required:false,
+      default:''
+    },
     email: {
       type: String,
       required: true,

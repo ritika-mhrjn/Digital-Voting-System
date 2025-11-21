@@ -126,7 +126,6 @@ const PostCard = ({ post, onReact, onComment, user }) => {
         // Add new reaction
         const newReaction = {
           user_id: user.id,
-          type: reactionType,
           user: {
             fullName: user.fullName,
             profilePic: user.profilePic
@@ -177,16 +176,16 @@ const PostCard = ({ post, onReact, onComment, user }) => {
 
   // Get author information with fallbacks
   const getAuthorInfo = () => {
-    if (post.author && typeof post.author === 'object') {
+    if (post.author) {
       return {
         name: post.author.fullName || "Unknown User",
-        pic: post.author.profilePic,
-        role: post.author.role
+        photo: post.author.photo,
+        // role: post.author.role
       };
     }
     return {
       name: "Unknown User",
-      pic: "/default-avatar.png",
+      pic: "/defaultPP.jpg",
       role: "user"
     };
   };
@@ -213,7 +212,7 @@ const PostCard = ({ post, onReact, onComment, user }) => {
     <div className="bg-white shadow rounded-lg p-4 mb-4 border border-gray-200">
       <div className="flex items-center gap-3 mb-3">
         <img 
-          src={authorInfo.pic || "/default-avatar.png"} 
+          src={authorInfo.photo || "/defaultPP.jpg"} 
           alt="author" 
           className="w-10 h-10 rounded-full object-cover border"
           onError={(e) => {
@@ -284,9 +283,7 @@ const PostCard = ({ post, onReact, onComment, user }) => {
       <div className="flex items-center border-t border-gray-100 pt-2">
         <div className="relative flex-1">
           <button
-            onMouseEnter={() => setShowReactionPicker(true)}
-            onMouseLeave={() => setTimeout(() => setShowReactionPicker(false), 300)}
-            onClick={() => handleReaction(currentUserReaction?.type || "like")}
+            onClick={() => handleReaction("like")}
             className={`flex items-center justify-center gap-2 px-2 py-2 rounded-lg transition w-full ${
               currentUserReaction 
                 ? `${currentUserReaction.color} font-semibold` 
@@ -464,7 +461,7 @@ const FeedPage = () => {
       );
 
       // Send to backend
-      const response = await addReaction(postId, reaction);
+      const response = await addReaction(postId, user.id);
       console.log("Reaction response:", response);
       
       // Reload posts to ensure sync with backend
@@ -504,9 +501,9 @@ const FeedPage = () => {
     <div className="max-w-2xl mx-auto mt-28 px-4">
       <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200 shadow-sm flex items-center gap-4">
         <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border border-gray-300">
-          {user?.profilePic ? (
+          {user?.profilePicture ? (
             <img
-              src={user.profilePic}
+              src={user.profilePicture}
               alt={user?.fullName}
               className="w-full h-full object-cover"
               onError={(e) => {
@@ -567,15 +564,14 @@ const ProfilePage = () => {
   }, [user]);
 
   const handleProfilePicChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || uploading) return;
+    const file = e.target.files[0];
+    if (!file) return;
 
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const image = reader.result;
+      console.log("Base64:", image);
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       alert("Please select a valid image file (JPEG, PNG, WebP)");
       return;
@@ -588,34 +584,43 @@ const ProfilePage = () => {
     }
 
     setUploading(true);
-    
-    try {
-      const response = await uploadProfileImage(user.id, file);
-      
-      if (response.data && response.data.profilePic) {
-        updateUser({ profilePic: response.data.profilePic });
-      } else if (response.profilePic) {
-        // Handle different response structures
-        updateUser({ profilePic: response.profilePic });
+
+      try {
+        const response = await uploadProfileImage(user.id, image);
+        
+        if(response.success){
+          localStorage.setItem('user',JSON.stringify({...response.data,id:response.data._id}))
+          updateUser(response.data)
+          alert("Profile picture updated successfully!");
+        }
+        else{
+          alert('Bhayena')
+        }
+        
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        alert("Failed to upload image. Please try another one.");
+      } finally {
+        setUploading(false);
       }
-      
-      alert("Profile picture updated successfully!");
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      alert("Failed to upload image. Please try another one.");
-    } finally {
-      setUploading(false);
+    };
+    reader.readAsDataURL(file);
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   const handleRemoveProfilePic = async () => {
     if (window.confirm("Are you sure you want to remove your profile picture?")) {
       try {
-        const response = await updateUserProfile(user.id, { profilePic: "" });
-        
+        const response = await updateUserProfile(user.id, { ...user, profilePicture: "/defaultPP.jpg" });
+        console.log(response.data)
         // Update user context
         if (response.data) {
-          updateUser({ profilePic: "" });
+          localStorage.setItem('user',JSON.stringify({...user,profilePicture: "/defaultPP.jpg"}))
+          updateUser({...user, profilePicture: "/defaultPP.jpg" });
         }
         
         alert("Profile picture removed successfully!");
@@ -662,14 +667,14 @@ const ProfilePage = () => {
               </div>
             )}
             
-            {user.profilePic ? (
+            {user.profilePicture ? (
               <img 
-                src={user.profilePic} 
+                src={user.profilePicture} 
                 alt="profile" 
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   e.target.src = "/default-avatar.png";
-                  updateUser({ profilePic: "/default-avatar.png" });
+                  updateUser({ profilePicture: "/default-avatar.png" });
                 }}
               />
             ) : (
@@ -699,7 +704,7 @@ const ProfilePage = () => {
             />
           </label>
 
-          {user.profilePic && !uploading && (
+          {user.profilePicture && !uploading && (
             <button
               onClick={handleRemoveProfilePic}
               className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition"

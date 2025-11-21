@@ -14,7 +14,7 @@ const asId = (id) =>
 exports.getPosts = async (req, res) => {
   try {
     const posts = await Post.find()
-      .populate("author", "fullName profilePic role")
+      .populate("author", "fullName photo")
       .populate("candidate", "fullName photo party")
       .populate("election", "title startDate endDate")
       .sort({ createdAt: -1 });
@@ -30,11 +30,8 @@ exports.getPosts = async (req, res) => {
 exports.createPost = async (req, res) => {
   try {
     // Automatically assign logged-in user as author
-    const body = {
-      ...req.body,
-      author: req.user?._id || req.body.author,
-    };
-
+    const body = req.body
+    console.log(body)
     const post = await Post.create(body);
 
     // Return populated post
@@ -79,17 +76,27 @@ exports.deletePost = async (req, res) => {
 exports.addReaction = async (req, res) => {
   try {
     const postId = req.params.postId;
-    const { user_id, type } = req.body;
+    const { userId } = req.body;
 
-    if (!postId || !user_id || !type) {
+    if (!postId || !userId) {
       return res.status(400).json({ error: "Missing fields" });
+    }
+
+    const find=await Reaction.find({user:userId,post:postId})
+    if(find){
+      const removeLike=await Reaction.findByIdAndDelete(find._id)
+      if(removeLike){
+        return res.json({message:'Like Removed successfully',success:true})
+      }
+      else{
+        return res.json({message:'Failed to remove like',success:false})
+      }
     }
 
     // Insert reaction
     const reaction = await Reaction.create({
-      user_id: asId(user_id),
-      post_id: asId(postId),
-      type,
+      user: asId(userId),
+      post: asId(postId),
       timestamp: new Date(),
     });
 
@@ -122,15 +129,14 @@ exports.addReaction = async (req, res) => {
     if (io) {
       io.emit("reaction:created", {
         postId,
-        user_id,
-        type,
+        userId,
       });
     }
 
     return res.json({ success: true, reactionId: reaction._id });
   } catch (err) {
     console.error("addReaction error:", err);
-    return res.status(500).json({ error: "Failed to add reaction" });
+    return res.status(500).json({ error: err.message });
   }
 };
 exports.addComment = async (req, res) => {

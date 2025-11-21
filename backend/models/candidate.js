@@ -12,6 +12,8 @@ const candidateSchema = new mongoose.Schema(
 
     manifesto: { type: String, default: '' },
 
+    verified: {type: Boolean, default:false},
+
     age: { type: Number, required: true, min: 21 },
 
     gender: {
@@ -27,21 +29,25 @@ const candidateSchema = new mongoose.Schema(
 
     photo: {
       type: String,
-      default: '',
+      required:false,
+      default: '/defaultPP.jpg',
     },
 
     politicalSign: {
       type: String, // image URL for political symbol
-      default: '',
+      default: '/defaultPP.jpg',
+      required:false
     },
 
     totalVotes: {
       type: Number,
+      required: false,
       default: 0,
     },
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
+      required:false,
       ref: 'User',
     },
   },

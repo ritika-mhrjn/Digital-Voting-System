@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const postSchema = new mongoose.Schema(
   {
-    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    author: { type: mongoose.Schema.Types.ObjectId, ref: 'Candidate', required: true },
     candidate: { type: mongoose.Schema.Types.ObjectId, ref: 'Candidate', required: false },
     election: { type: mongoose.Schema.Types.ObjectId, ref: 'Election', required: false },
     text: { type: String, default: '' },

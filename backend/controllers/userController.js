@@ -22,8 +22,13 @@ exports.updateUserProfile = async (req, res) => {
       req.body,
       { new: true }
     ).select("-password");
-
-    return res.json(updatedUser);
+    if(updatedUser){
+      console.log('bhayo')
+      return res.json({data:updatedUser,success:true});
+    }
+    else{
+      console.log('Bhako chaina')
+    }
   } catch (error) {
     return res.status(400).json({ error: "Failed to update user profile" });
   }
@@ -32,19 +37,25 @@ exports.updateUserProfile = async (req, res) => {
 // UPLOAD profile image
 exports.uploadProfileImage = async (req, res) => {
   try {
-    if (!req.file)
-      return res.status(400).json({ error: "No image uploaded" });
-
-    const imagePath = "/uploads/" + req.file.filename;
+    const {userId} =req.params;
+    const image = req.body.image;
+    console.log(userId)
+    if (!image) {
+      return res.status(400).json({ error: "No image provided",success:false });
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
-      req.params.userId,
-      { profilePic: imagePath },
-      { new: true }
+      userId,
+      { profilePicture: image },
+      {new: true}
     );
 
-    return res.json(updatedUser);
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" ,success:false});
+    }
+
+    return res.json({data:updatedUser, success:true});
   } catch (error) {
-    return res.status(400).json({ error: "Failed to upload image" });
+    return res.status(400).json({ error: "Failed to upload image", success:false });
   }
 };

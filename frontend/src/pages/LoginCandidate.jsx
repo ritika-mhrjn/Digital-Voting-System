@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react"; // Import Eye and EyeOff icons
 import { useLanguage } from "../contexts/LanguageContext";
-import { loginUser } from "../api/endpoints";
+import { loginCandidate } from "../api/endpoints";
 import { useAuth } from "../contexts/AuthContext";
 import { Link } from "react-router-dom";
 
-const Login = () => {
+const LoginCandidate = () => {
   const { login, user } = useAuth();
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -14,7 +14,6 @@ const Login = () => {
   const [credentials, setCredentials] = useState({
     email: "",
     password: "",
-    role: "voter",
   });
 
   const [errors, setErrors] = useState({});
@@ -35,10 +34,6 @@ const Login = () => {
     else if (credentials.password.length < 6)
       errs.password = "Password must be at least 6 characters";
 
-    if (!credentials.role) errs.role = "Role is required";
-    else if (!["voter", "candidate", "admin", "electoral_committee"].includes(credentials.role))
-      errs.role = "Invalid role selected";
-
     return errs;
   };
 
@@ -52,7 +47,7 @@ const Login = () => {
 
     try {
       console.log("Sending request to backend...");
-      const res = await loginUser(credentials);
+      const res = await loginCandidate(credentials);
       console.log("Backend response:", res.data);
 
       const token = res?.data?.token;
@@ -66,13 +61,7 @@ const Login = () => {
 
       login(token, user, true);
 
-      const roleDashboardMap = {
-        admin: "/admin-dashboard",
-        candidate: "/candidate-dashboard",
-        electoral_committee: "/electoral-committee-dashboard",
-        voter: "/voter-dashboard",
-      };
-      navigate(roleDashboardMap[user.role] || "/voter-dashboard");
+      navigate("/candidate-dashboard");
     } catch (err) {
       console.error("Login error:", err);
       setError(
@@ -162,24 +151,6 @@ const Login = () => {
           {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
         </div>
 
-        {/* Role */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            {t("role")} <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="role"
-            value={credentials.role}
-            onChange={handleChange}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
-          >
-            <option value="voter">{t("voter")}</option>
-            <option value="admin">{t("admin")}</option>
-            <option value="electoral_committee">{t("electoralCommittee")}</option>
-          </select>
-          {errors.role && <p className="text-red-500 text-sm mt-1">{errors.role}</p>}
-        </div>
-
         <button
           type="submit"
           className="w-20 bg-blue-800 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -194,18 +165,9 @@ const Login = () => {
             {t("register")}
           </Link>
         </p>
-        
-        <p className="text-left text-sm">
-          Registered as a candidate?{" "}
-          <Link
-            to="/loginCandidate"
-            className="text-blue-600 underline hover:text-blue-800">
-            {t("Login")}
-          </Link>
-        </p>
       </form>
     </div>
   );
 };
 
-export default Login;
+export default LoginCandidate;
