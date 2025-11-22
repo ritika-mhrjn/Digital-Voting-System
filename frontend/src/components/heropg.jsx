@@ -24,12 +24,12 @@ const Heropg = () => {
       setLoading(true);
       setError(null);
       console.log('Fetching all elections...');
-      
+
       const electionsData = await getElections();
       console.log('Raw elections response:', electionsData);
-      
+
       let electionsArray = [];
-      
+
       if (Array.isArray(electionsData)) {
         electionsArray = electionsData;
       } else if (electionsData && Array.isArray(electionsData.data)) {
@@ -39,10 +39,10 @@ const Heropg = () => {
       } else if (electionsData && electionsData.success && Array.isArray(electionsData.data)) {
         electionsArray = electionsData.data;
       }
-      
+
       console.log('All elections to display:', electionsArray);
       setElections(electionsArray);
-      
+
     } catch (error) {
       console.error("Error fetching elections:", error);
       setError("Failed to load elections. Please try again later.");
@@ -96,7 +96,7 @@ const Heropg = () => {
 
   return (
     <div className="flex flex-col min-h-screen relative">
-      <div 
+      <div
         className="fixed inset-0 -z-10"
         style={{
           backgroundImage: "url('/vote.webp')",
@@ -188,8 +188,8 @@ const Heropg = () => {
       <div className="w-full py-8 md:py-12 px-4 relative">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl md:text-4xl font-bold text-white drop-shadow-lg text-center mb-6 md:mb-8"
-           style={{ fontFamily: "Cooper BT, serif" }}>
-            Current & Upcoming Elections
+            style={{ fontFamily: "Cooper BT, serif" }}>
+            {t("currentUpcoming")}
           </h2>
 
           {error && (
@@ -201,12 +201,12 @@ const Heropg = () => {
           {loading ? (
             <div className="text-center text-white py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-              <p className="mt-2">Loading elections...</p>
+              <p className="mt-2"> {t("loadingElections")}</p>
             </div>
           ) : elections.length === 0 ? (
             <div className="text-center text-white py-8 backdrop-blur-sm bg-black/30 rounded-lg max-w-2xl mx-auto">
-              <p className="text-lg">No elections scheduled at the moment.</p>
-              <p className="text-sm mt-2">Check back later for upcoming elections.</p>
+              <p className="text-lg">{t("noElections")} </p>
+              <p className="text-sm mt-2">{t("checkBackLater")}</p>
             </div>
           ) : (
             <div className="space-y-6 md:space-y-8">
@@ -214,8 +214,8 @@ const Heropg = () => {
               {ongoingElections.length > 0 && (
                 <div>
                   <h3 className="text-xl md:text-2xl font-semibold text-white drop-shadow-md mb-4"
-                  style={{ fontFamily: "Cooper BT, serif" }}>
-                    Ongoing Elections
+                    style={{ fontFamily: "Cooper BT, serif" }}>
+                    {t("ongoingElections")}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     {ongoingElections.map((election) => (
@@ -227,7 +227,7 @@ const Heropg = () => {
                           {election.title}
                         </h4>
                         <p className="text-green-600 font-semibold mb-2">
-                          🔴Live Now
+                          🔴 {t("liveNow")}
                         </p>
                         <div className="text-sm text-gray-600 space-y-1">
                           <p>
@@ -244,14 +244,14 @@ const Heropg = () => {
                             onClick={() => navigate("/vote")}
                             className="mt-4 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors text-sm md:text-base"
                           >
-                            Vote Now
+                            {t("voteNow")}
                           </button>
                         ) : (
                           <button
                             onClick={() => navigate("/login")}
                             className="mt-4 w-full bg-blue-700 text-white py-2 rounded-lg hover:bg-blue-800 transition-colors text-sm md:text-base"
                           >
-                            Login to Vote
+                            {t("loginToVote")}   
                           </button>
                         )}
                       </div>
@@ -264,8 +264,8 @@ const Heropg = () => {
               {upcomingElections.length > 0 && (
                 <div>
                   <h3 className="text-xl md:text-2xl font-semibold text-white drop-shadow-md mb-4"
-                  style={{ fontFamily: "Cooper BT, serif" }}>
-                    Upcoming Elections
+                    style={{ fontFamily: "Cooper BT, serif" }}>
+                     {t("upcomingElections")}    
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     {upcomingElections.map((election) => (
@@ -277,7 +277,7 @@ const Heropg = () => {
                           {election.title}
                         </h4>
                         <p className="text-blue-600 font-semibold mb-2">
-                          Coming Soon
+                           {t("comingSoon")}    
                         </p>
                         <div className="text-sm text-gray-600 space-y-1">
                           <p>
@@ -290,7 +290,7 @@ const Heropg = () => {
                           </p>
                         </div>
                         <div className="mt-4 text-xs text-gray-500">
-                          Check back when the election starts to participate.
+                          {t("checkBack")} 
                         </div>
                       </div>
                     ))}
@@ -302,7 +302,7 @@ const Heropg = () => {
               {pastElections.length > 0 && ongoingElections.length === 0 && upcomingElections.length === 0 && (
                 <div>
                   <h3 className="text-xl md:text-2xl font-semibold text-white drop-shadow-md mb-4">
-                    Recent Elections
+                     {t("recentElections")} 
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     {pastElections.slice(0, 3).map((election) => (
@@ -314,7 +314,7 @@ const Heropg = () => {
                           {election.title}
                         </h4>
                         <p className="text-gray-600 font-semibold mb-2">
-                          ✅ Completed
+                          ✅ {t("completed")} 
                         </p>
                         <div className="text-sm text-gray-600 space-y-1">
                           <p>

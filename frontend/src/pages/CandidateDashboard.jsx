@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { Camera, Video, X, Edit2, Trash2, Save, LogOut } from "lucide-react";
-import { getPosts, createPost, updatePost, deletePost, uploadProfileImage, updateUserProfile } from "../api/endpoints";
+import { getPosts, createPost, updatePost, deletePost } from "../api/endpoints";
 import { useAuth } from "../contexts/AuthContext";
 
 const Notification = ({ message, type = "success", onClose }) => {
@@ -87,7 +86,6 @@ const PostCard = ({ post, user, onViewMedia, onDelete, onSaveEdit }) => {
                   post.authorId === user?.id || 
                   post.author === user?.id;
 
-  // Get initial from name
   const getInitial = (name) => {
     if (!name) return "U";
     return name.charAt(0).toUpperCase();
@@ -144,10 +142,10 @@ const PostCard = ({ post, user, onViewMedia, onDelete, onSaveEdit }) => {
     }
     
     // Case 3: Current user is the author and has profilePic
-    if (isOwner && user && user.profilePic) {
+    if (isOwner && user && user.photo) {
       return {
         name: user.fullName,
-        pic: user.profilePic,
+        pic: user.photo,
         initial: getInitial(user.fullName)
       };
     }
@@ -174,7 +172,7 @@ const PostCard = ({ post, user, onViewMedia, onDelete, onSaveEdit }) => {
     if (isOwner && user) {
       return {
         name: user.fullName,
-        pic: null, // Force showing initial
+        pic: null, 
         initial: getInitial(user.fullName)
       };
     }
@@ -325,8 +323,6 @@ const PostCreator = ({ user, posts, setPosts, onPostCreated }) => {
     });
   };
 
-  // console.log(user)
-
   const handlePostSubmit = async (e) => {
     e.preventDefault();
     if (!text.trim() && !selectedMedia) {
@@ -350,12 +346,12 @@ const PostCreator = ({ user, posts, setPosts, onPostCreated }) => {
         };
       }
 
-      // Prepare complete post data with all required fields - FIXED PROFILE PICTURE DATA
+      // Prepare complete post data with all required fields
       const postData = {
         text: text.trim(),
         author: user.id,
         authorName: user.fullName,
-        authorPic: user.photo, // This should now contain the actual profile picture
+        authorPic: user.photo,
         media: mediaData,
         reactionsCount: 0,
         comments: [],
@@ -363,24 +359,24 @@ const PostCreator = ({ user, posts, setPosts, onPostCreated }) => {
         createdAt: new Date().toISOString()
       };
 
-      console.log("Sending post data with profile pic:", user?.profilePic ? "YES" : "NO");
+      console.log("Sending post data with profile pic:", user?.photo ? "YES" : "NO");
 
       const savedPost = await createPost(postData);
       
       // Handle different response structures from createPost
       const newPost = savedPost.data || savedPost;
       
-      // Create a complete temporary post for immediate display - FIXED AUTHOR DATA
+      // Create a complete temporary post for immediate display
       const tempPost = {
         ...newPost,
         _id: newPost._id || `temp-${Date.now()}`,
         author: {
           _id: user?.id,
           fullName: user?.fullName,
-          photo: user?.photo // Ensure profile pic is passed to author object
+          photo: user?.photo
         },
         authorName: newPost.authorName || user?.fullName,
-        authorPic: newPost.authorPic || user?.profilePic, // Ensure profile pic is passed
+        authorPic: newPost.authorPic || user?.photo,
         reactionsCount: newPost.reactionsCount || 0,
         comments: newPost.comments || [],
         createdAt: newPost.createdAt || new Date().toISOString()
@@ -442,16 +438,15 @@ const PostCreator = ({ user, posts, setPosts, onPostCreated }) => {
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 mb-4">
       <div className="flex items-center gap-3 mb-3">
-        {/* Profile picture in PostCreator - FIXED */}
+        {/* Profile picture in PostCreator */}
         {user?.photo ? (
           <img 
             src={user.photo} 
             alt="profile" 
             className="w-10 h-10 rounded-full object-cover border" 
             onError={(e) => {
-              console.error("Failed to load profile picture in PostCreator:", user.profilePic);
+              console.error("Failed to load profile picture in PostCreator:", user.photo);
               e.target.style.display = 'none';
-              // This will fall back to showing the initial in the next render
             }}
           />
         ) : (
@@ -544,7 +539,7 @@ const FeedPage = ({ posts, setPosts, onViewMedia, search, onPostCreated }) => {
       }
     };
     fetchPosts();
-  }, [setPosts, user]); // Added user dependency
+  }, [setPosts, user]);
 
   // Ensure posts is always treated as an array
   const safePosts = Array.isArray(posts) ? posts : [];
@@ -656,24 +651,8 @@ const MediaModal = ({ media, onClose }) => {
 
 // -------- ProfilePage --------
 const ProfilePage = ({ posts, setPosts, onViewMedia, onPostCreated }) => {
-  const { user, updateUser, updateBio, updatePoliticalSign, updateSignName } = useAuth();
-  const [isEditingBio, setIsEditingBio] = useState(false);
-  const [bioText, setBioText] = useState(user?.bio || "");
-  const [uploading, setUploading] = useState(false);
-  const [uploadingSign, setUploadingSign] = useState(false);
+  const { user } = useAuth();
   
-  // File input refs
-  const profileFileInputRef = useRef(null);
-  const signFileInputRef = useRef(null);
-  
-  // Initialize refs when user data changes
-  useEffect(() => {
-    if (user?.bio) {
-      setBioText(user.bio);
-    }
-  }, [user]);
-
-  // Ensure posts is always treated as an array
   const safePosts = Array.isArray(posts) ? posts : [];
 
   // Filter posts to show only the current user's posts
@@ -682,139 +661,6 @@ const ProfilePage = ({ posts, setPosts, onViewMedia, onPostCreated }) => {
            p.authorId === user?.id || 
            p.author === user?.id;
   });
-
-  const saveBio = async () => {
-    if (!bioText.trim()) {
-      alert("Bio cannot be empty");
-      return;
-    }
-    
-    try {
-      await updateBio(bioText);
-      setIsEditingBio(false);
-    } catch (error) {
-      console.error('Error updating bio:', error);
-      alert("Failed to update bio. Please try again.");
-    }
-  };
-
-  const handleProfilePicChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || uploading) return;
-
-    // Reset file input
-    if (profileFileInputRef.current) {
-      profileFileInputRef.current.value = '';
-    }
-
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      alert("Please select a valid image file (JPEG, PNG, WebP)");
-      return;
-    }
-
-    // Validate file size (2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Please select an image smaller than 2MB");
-      return;
-    }
-
-    setUploading(true);
-    
-    try {
-      const response = await uploadProfileImage(user.id, file);
-      
-      if (response.data && response.data.profilePic) {
-        updateUser({ profilePic: response.data.profilePic });
-      } else if (response.profilePic) {
-        // Handle different response structures
-        updateUser({ profilePic: response.profilePic });
-      }
-      
-      alert("Profile picture updated successfully!");
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      alert("Failed to upload image. Please try another one.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleRemoveProfilePic = async () => {
-    if (window.confirm("Are you sure you want to remove your profile picture?")) {
-      try {
-        const response = await updateUserProfile(user.id, { profilePic: "" });
-        
-        // Update user context
-        if (response.data) {
-          updateUser({ profilePic: "" });
-        }
-        
-        alert("Profile picture removed successfully!");
-      } catch (error) {
-        console.error("Error removing profile picture:", error);
-        alert("Failed to remove profile picture");
-      }
-    }
-  };
-
-  const handlePoliticalSignChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || uploadingSign) return;
-
-    // Reset file input
-    if (signFileInputRef.current) {
-      signFileInputRef.current.value = '';
-    }
-
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      alert("Please select a valid image file (JPEG, PNG, WebP)");
-      return;
-    }
-
-    // Validate file size (2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Please select an image smaller than 2MB");
-      return;
-    }
-
-    setUploadingSign(true);
-    
-    try {
-      // Convert to base64 for storage (since we don't have a specific political sign upload endpoint)
-      const base64 = await fileToBase64(file);
-      await updatePoliticalSign(base64);
-      alert("Political sign updated successfully!");
-    } catch (error) {
-      console.error("Error uploading political sign:", error);
-      alert("Failed to upload political sign. Please try another one.");
-    } finally {
-      setUploadingSign(false);
-    }
-  };
-
-  const handleRemovePoliticalSign = async () => {
-    if (window.confirm("Are you sure you want to remove your political sign?")) {
-      try {
-        await updatePoliticalSign(null);
-        alert("Political sign removed successfully!");
-      } catch (error) {
-        console.error("Error removing political sign:", error);
-        alert("Failed to remove political sign");
-      }
-    }
-  };
-
-  // Helper function to convert file to base64
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = error => reject(error);
-    });
-  };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this post?")) {
@@ -850,20 +696,15 @@ const ProfilePage = ({ posts, setPosts, onViewMedia, onPostCreated }) => {
       <div className="bg-white p-6 rounded-lg shadow border border-gray-200 flex flex-col items-center relative">
         <div className="relative">
           <div className="w-40 h-40 rounded-full border-4 border-gray-200 overflow-hidden flex items-center justify-center bg-gray-100 relative">
-            {uploading && (
-              <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800"></div>
-              </div>
-            )}
-            
-            {user.profilePic ? (
+            {user.photo ? (
               <img 
-                src={user.profilePic} 
+                src={user.photo} 
                 alt="profile" 
-                className="w-full h-full object-cover"
-                onClick={() => onViewMedia(user.profilePic, "image")}
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => onViewMedia(user.photo, "image")}
                 onError={(e) => {
-                  e.target.src = "/default-avatar.png";
+                  console.error("Failed to load profile picture:", user.photo);
+                  e.target.style.display = 'none';
                 }}
               />
             ) : (
@@ -874,111 +715,24 @@ const ProfilePage = ({ posts, setPosts, onViewMedia, onPostCreated }) => {
               </div>
             )}
           </div>
-
-          <label className={`absolute bottom-2 right-2 p-2 rounded-full cursor-pointer shadow-md transition ${
-            uploading 
-              ? 'bg-gray-400 cursor-not-allowed' 
-              : 'bg-blue-600 hover:bg-blue-700'
-          }`}>
-            {uploading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <Camera className="w-5 h-5 text-white" />
-            )}
-            <input 
-              ref={profileFileInputRef}
-              type="file" 
-              accept="image/jpeg,image/jpg,image/png,image/webp" 
-              onChange={handleProfilePicChange} 
-              disabled={uploading}
-              className="hidden" 
-            />
-          </label>
-
-          {user.profilePic && !uploading && (
-            <button
-              onClick={handleRemoveProfilePic}
-              className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition"
-              title="Remove profile picture"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
         </div>
 
         <h2 className="mt-4 text-2xl font-semibold text-gray-800">{user.fullName}</h2>
         <p className="text-gray-500">{user.email}</p>
 
-        {uploading && (
-          <div className="mt-2 text-sm text-blue-600 flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            Uploading...
-          </div>
-        )}
-
-        <div className="mt-4 w-full max-w-md">
-          {isEditingBio ? (
-            <>
-              <textarea
-                value={bioText}
-                onChange={(e) => setBioText(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-                placeholder="Write something about yourself..."
-                maxLength={500}
-              />
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-xs text-gray-500 ">{bioText.length}/500</span>
-              </div>
-              <div className="flex justify-end gap-2 mt-3">
-                <button 
-                  onClick={() => setIsEditingBio(false)} 
-                  className="px-4 py-2 rounded border border-gray-300 hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={saveBio}
-                  disabled={!bioText.trim()}
-                  className="px-4 py-2 rounded bg-blue-800 text-white hover:bg-blue-900 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Save
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className={`text-gray-700 ${!user.bio ? "text-gray-400 italic ml-40" : ""}`}>
-                {user.bio || "No bio added yet"}
-              </p>
-              <button 
-                onClick={() => setIsEditingBio(true)} 
-                className="mt-2 text-sm text-blue-600 ml-50 hover:text-blue-800 underline transition"
-              >
-                {user.bio ? "Edit Bio" : "Add Bio"}
-              </button>
-            </>
-          )}
-        </div>
-
         {/* Political Sign Section */}
         <div className="mt-8 flex flex-col items-center">
-          <h3 className="text-lg font-semibold mb-4">Political Sign</h3>
+          <h3 className="text-2xl font-semibold mb-4">Political Sign</h3>
           <div className="relative">
             <div className="w-32 h-32 rounded-full border-4 border-gray-200 overflow-hidden flex items-center justify-center bg-gray-100 relative">
-              {uploadingSign && (
-                <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-800"></div>
-                </div>
-              )}
-              
               {user.politicalSign ? (
                 <img 
                   src={user.politicalSign} 
                   alt="Political Sign" 
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-pointer"
                   onClick={() => onViewMedia(user.politicalSign, "image")}
                   onError={(e) => {
+                    console.error("Failed to load political sign:", user.politicalSign);
                     e.target.style.display = 'none';
                   }}
                 />
@@ -988,52 +742,11 @@ const ProfilePage = ({ posts, setPosts, onViewMedia, onPostCreated }) => {
                 </div>
               )}
             </div>
-
-            <label className={`absolute bottom-1 right-1 p-2 rounded-full cursor-pointer shadow-md transition ${
-              uploadingSign 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}>
-              {uploadingSign ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <Camera className="w-4 h-4 text-white" />
-              )}
-              <input 
-                ref={signFileInputRef}
-                type="file" 
-                accept="image/jpeg,image/jpg,image/png,image/webp" 
-                onChange={handlePoliticalSignChange} 
-                disabled={uploadingSign}
-                className="hidden" 
-              />
-            </label>
-
-            {user.politicalSign && !uploadingSign && (
-              <button
-                onClick={handleRemovePoliticalSign}
-                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition"
-                title="Remove political sign"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            )}
           </div>
 
-          <input
-            type="text"
-            placeholder="Enter Sign Name"
-            value={user.signName || ""}
-            onChange={(e) => updateSignName(e.target.value)}
-            className="mt-3 w-40 text-center border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-
-          {uploadingSign && (
-            <div className="mt-2 text-sm text-blue-600 flex items-center gap-2">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-              Uploading...
-            </div>
-          )}
+          <div className="mt-3 text-center">
+            <div className="text-lg font-semibold text-black">{user.partyName}</div>
+          </div>
         </div>
       </div>
 

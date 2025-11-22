@@ -70,6 +70,9 @@ const AdminDashboard = () => {
   const [candidates, setCandidates] = useState([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
 
+  // Validation errors state
+  const [validationErrors, setValidationErrors] = useState({});
+
   // Optimized modal state management for voters
   const [editModalData, setEditModalData] = useState({
     isOpen: false,
@@ -82,15 +85,72 @@ const AdminDashboard = () => {
     }
   });
 
-  const [addModalData, setAddModalData] = useState({
-    isOpen: false,
-    formData: {
-      voterId: "",
-      fullName: "",
-      nationalId: "",
-      dateOfBirth: ""
+  // Calculate maximum date for 18 years ago
+  const getMaxDateFor18Years = () => {
+    const today = new Date();
+    const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+    return maxDate.toISOString().split('T')[0];
+  };
+
+  const validateField = (name, value) => {
+    const errors = { ...validationErrors };
+    
+    switch (name) {
+      case "fullName":
+        if (!value.trim()) {
+          errors.fullName = "Full name is required";
+        } else if (!/^[a-zA-Z\s]+$/.test(value)) {
+          errors.fullName = "Name can only contain letters and spaces";
+        } else if (value.length > 30) {
+          errors.fullName = "Name cannot exceed 30 characters";
+        } else {
+          delete errors.fullName;
+        }
+        break;
+      
+      case "voterId":
+        if (!value.trim()) {
+          errors.voterId = "Voter ID is required";
+        } else if (value.length > 13) {
+          errors.voterId = "Voter ID cannot exceed 13 characters";
+        } else {
+          delete errors.voterId;
+        }
+        break;
+      
+      case "nationalId":
+        if (!value.trim()) {
+          errors.nationalId = "National ID is required";
+        } else if (!/^\d{7}$/.test(value)) {
+          errors.nationalId = "National ID must be exactly 7 digits";
+        } else {
+          delete errors.nationalId;
+        }
+        break;
+      
+      case "dateOfBirth":
+        if (!value) {
+          errors.dateOfBirth = "Date of birth is required";
+        } else {
+          const selectedDate = new Date(value);
+          const today = new Date();
+          const minDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+          
+          if (selectedDate > minDate) {
+            errors.dateOfBirth = "Voter must be at least 18 years old";
+          } else {
+            delete errors.dateOfBirth;
+          }
+        }
+        break;
+      
+      default:
+        break;
     }
-  });
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -159,7 +219,7 @@ const AdminDashboard = () => {
     alert(`More details about ${type} will appear here later.`);
   };
 
-  // Voter Management Functions (existing code)
+  // Voter Management Functions
   const handleVerifyVoter = async (voterId) => {
     if (!window.confirm("Are you sure you want to verify this voter?")) {
       return;
@@ -186,7 +246,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // Optimized modal handlers for voters (existing code)
+  // Optimized modal handlers for voters
   const handleEditVoter = useCallback((voter) => {
     setEditModalData({
       isOpen: true,
@@ -198,29 +258,65 @@ const AdminDashboard = () => {
         nationalId: voter.nationalId || ''
       }
     });
+    // Clear validation errors when opening modal
+    setValidationErrors({});
   }, []);
 
   const handleEditFormChange = useCallback((field, value) => {
+    let processedValue = value;
+
+    // Apply field-specific formatting and validation
+    switch (field) {
+      case "fullName":
+        // Only allow letters and spaces, max 30 characters
+        processedValue = value.replace(/[^a-zA-Z\s]/g, "").slice(0, 30);
+        break;
+      case "voterId":
+        // Max 13 characters
+        processedValue = value.slice(0, 13);
+        break;
+      case "nationalId":
+        // Only numbers, exactly 7 digits
+        processedValue = value.replace(/\D/g, "").slice(0, 7);
+        break;
+      default:
+        break;
+    }
+
     setEditModalData(prev => ({
       ...prev,
       formData: {
         ...prev.formData,
-        [field]: value
+        [field]: processedValue
       }
     }));
-  }, []);
 
-  const handleNewVoterChange = useCallback((field, value) => {
-    setAddModalData(prev => ({
-      ...prev,
-      formData: {
-        ...prev.formData,
-        [field]: value
-      }
-    }));
+    // Validate the field
+    validateField(field, processedValue);
   }, []);
 
   const handleSaveEdit = async () => {
+    // Validate all fields before saving
+    const isFullNameValid = validateField("fullName", editModalData.formData.fullName);
+    const isVoterIdValid = validateField("voterId", editModalData.formData.voterId);
+    const isNationalIdValid = validateField("nationalId", editModalData.formData.nationalId);
+    const isDobValid = validateField("dateOfBirth", editModalData.formData.dateOfBirth);
+
+    if (!isFullNameValid || !isVoterIdValid || !isNationalIdValid || !isDobValid) {
+      alert("Please fix all validation errors before saving.");
+      return;
+    }
+
+    // Check if voter is at least 18 years old
+    const selectedDate = new Date(editModalData.formData.dateOfBirth);
+    const today = new Date();
+    const minDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+    
+    if (selectedDate > minDate) {
+      alert("Voter must be at least 18 years old.");
+      return;
+    }
+
     try {
       const response = await updateVoter(editModalData.voterId, editModalData.formData);
       
@@ -242,6 +338,7 @@ const AdminDashboard = () => {
             dateOfBirth: ""
           }
         });
+        setValidationErrors({});
         alert("Voter updated successfully!");
       } else {
         alert(response.message || "Failed to update voter");
@@ -272,41 +369,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleAddVoter = async () => {
-    if (!addModalData.formData.voterId || !addModalData.formData.fullName) {
-      alert("Voter ID and Full Name are required");
-      return;
-    }
-
-    try {
-      const response = await addVoter(addModalData.formData);
-      
-      if (response.success) {
-        setVoters(prevVoters => [...prevVoters, { 
-          ...addModalData.formData, 
-          _id: Date.now().toString(), 
-          verified: false 
-        }]);
-        setAddModalData({
-          isOpen: false,
-          formData: {
-            voterId: "",
-            fullName: "",
-            nationalId: "",
-            dateOfBirth: ""
-          }
-        });
-        alert("Voter added successfully!");
-      } else {
-        alert(response.message || "Failed to add voter");
-      }
-    } catch (error) {
-      console.error("Error adding voter:", error);
-      alert("Failed to add voter");
-    }
-  };
-
-  // Section Components
+  // Section Components (DashboardSection, VotesSection, VoterManagementSection, CandidateManagementSection remain the same)
   const DashboardSection = () => (
     <>
       <h1 className="text-3xl font-bold text-slate-800 mb-6">
@@ -403,21 +466,7 @@ const AdminDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold text-indigo-500/90">Voter Management</h2>
-        <button
-          onClick={() => setAddModalData({ 
-            isOpen: true, 
-            formData: {
-              voterId: "",
-              fullName: "",
-              nationalId: "",
-              dateOfBirth: ""
-            }
-          })}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Add Voter
-        </button>
+        
       </div>
       
       {/* Verification Summary */}
@@ -757,7 +806,7 @@ const AdminDashboard = () => {
           collapsed ? "ml-20" : "ml-64"
         }`}
       >
-        {/* Sticky Header */}
+        {/* Header */}
         <header className="sticky top-0 z-30 flex justify-end items-center p-4.5 bg-[#f6eefd] border-b-3 border-gray-500">
           <div className="flex items-center h-11 gap-3">
             <div className="inline-flex items-center justify-center w-10 h-10 bg-blue-800 rounded-full">
@@ -782,83 +831,129 @@ const AdminDashboard = () => {
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div 
             className="absolute inset-0 bg-transparent"
-            onClick={() => setEditModalData({ 
-              isOpen: false, 
-              voterId: null, 
-              formData: {
-                voterId: "",
-                fullName: "",
-                nationalId: "",
-                dateOfBirth: ""
-              }
-            })}
+            onClick={() => {
+              setEditModalData({ 
+                isOpen: false, 
+                voterId: null, 
+                formData: {
+                  voterId: "",
+                  fullName: "",
+                  nationalId: "",
+                  dateOfBirth: ""
+                }
+              });
+              setValidationErrors({});
+            }}
           ></div>
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4 relative z-10 border-2 border-blue-300">
             <h3 className="text-xl font-bold mb-4 text-blue-800">Edit Voter</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Voter ID
+                  Voter ID <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={editModalData.formData.voterId}
                   onChange={(e) => handleEditFormChange('voterId', e.target.value)}
-                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full border p-2 rounded focus:ring-2 focus:border-transparent ${
+                    validationErrors.voterId 
+                      ? "border-red-500 focus:ring-red-500" 
+                      : "border-gray-300 focus:ring-blue-500"
+                  }`}
+                  placeholder="Enter voter ID (max 13 chars)"
                 />
+                {validationErrors.voterId && (
+                  <p className="text-red-500 text-xs mt-1">{validationErrors.voterId}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name
+                  Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={editModalData.formData.fullName}
                   onChange={(e) => handleEditFormChange('fullName', e.target.value)}
-                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full border p-2 rounded focus:ring-2 focus:border-transparent ${
+                    validationErrors.fullName 
+                      ? "border-red-500 focus:ring-red-500" 
+                      : "border-gray-300 focus:ring-blue-500"
+                  }`}
+                  placeholder="Enter full name (letters only)"
                 />
+                {validationErrors.fullName && (
+                  <p className="text-red-500 text-xs mt-1">{validationErrors.fullName}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  National ID
+                  National ID <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={editModalData.formData.nationalId}
                   onChange={(e) => handleEditFormChange('nationalId', e.target.value)}
-                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full border p-2 rounded focus:ring-2 focus:border-transparent ${
+                    validationErrors.nationalId 
+                      ? "border-red-500 focus:ring-red-500" 
+                      : "border-gray-300 focus:ring-blue-500"
+                  }`}
+                  placeholder="Enter 7-digit national ID"
                 />
+                {validationErrors.nationalId && (
+                  <p className="text-red-500 text-xs mt-1">{validationErrors.nationalId}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth
+                  Date of Birth <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   value={editModalData.formData.dateOfBirth}
                   onChange={(e) => handleEditFormChange('dateOfBirth', e.target.value)}
-                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  max={getMaxDateFor18Years()}
+                  className={`w-full border p-2 rounded focus:ring-2 focus:border-transparent ${
+                    validationErrors.dateOfBirth 
+                      ? "border-red-500 focus:ring-red-500" 
+                      : "border-gray-300 focus:ring-blue-500"
+                  }`}
                 />
+                {validationErrors.dateOfBirth && (
+                  <p className="text-red-500 text-xs mt-1">{validationErrors.dateOfBirth}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Maximum allowed date: {getMaxDateFor18Years()} (18 years ago)
+                </p>
               </div>
               <div className="flex gap-2 justify-end pt-4">
                 <button
-                  onClick={() => setEditModalData({ 
-                    isOpen: false, 
-                    voterId: null, 
-                    formData: {
-                      voterId: "",
-                      fullName: "",
-                      nationalId: "",
-                      dateOfBirth: ""
-                    }
-                  })}
+                  onClick={() => {
+                    setEditModalData({ 
+                      isOpen: false, 
+                      voterId: null, 
+                      formData: {
+                        voterId: "",
+                        fullName: "",
+                        nationalId: "",
+                        dateOfBirth: ""
+                      }
+                    });
+                    setValidationErrors({});
+                  }}
                   className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveEdit}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors"
+                  disabled={Object.keys(validationErrors).length > 0}
+                  className={`px-4 py-2 rounded transition-colors ${
+                    Object.keys(validationErrors).length > 0
+                      ? "bg-gray-400 cursor-not-allowed text-white"
+                      : "bg-blue-500 hover:bg-blue-600 text-white"
+                  }`}
                 >
                   Save Changes
                 </button>
@@ -868,97 +963,6 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Add Voter Modal */}
-      {addModalData.isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div 
-            className="absolute inset-0 bg-transparent"
-            onClick={() => setAddModalData({ 
-              isOpen: false, 
-              formData: {
-                voterId: "",
-                fullName: "",
-                nationalId: "",
-                dateOfBirth: ""
-              }
-            })}
-          ></div>
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4 relative z-10 border-2 border-green-300">
-            <h3 className="text-xl font-bold mb-4 text-green-800">Add New Voter</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Voter ID *
-                </label>
-                <input
-                  type="text"
-                  value={addModalData.formData.voterId}
-                  onChange={(e) => handleNewVoterChange('voterId', e.target.value)}
-                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter voter ID"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  value={addModalData.formData.fullName}
-                  onChange={(e) => handleNewVoterChange('fullName', e.target.value)}
-                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter full name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  National ID
-                </label>
-                <input
-                  type="text"
-                  value={addModalData.formData.nationalId}
-                  onChange={(e) => handleNewVoterChange('nationalId', e.target.value)}
-                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter national ID"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  value={addModalData.formData.dateOfBirth}
-                  onChange={(e) => handleNewVoterChange('dateOfBirth', e.target.value)}
-                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex gap-2 justify-end pt-4">
-                <button
-                  onClick={() => setAddModalData({ 
-                    isOpen: false, 
-                    formData: {
-                      voterId: "",
-                      fullName: "",
-                      nationalId: "",
-                      dateOfBirth: ""
-                    }
-                  })}
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddVoter}
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded transition-colors"
-                >
-                  Add Voter
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff } from "lucide-react"; // Import Eye and EyeOff icons
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { loginUser } from "../api/endpoints";
 import { useAuth } from "../contexts/AuthContext";
@@ -19,21 +19,30 @@ const Login = () => {
 
   const [errors, setErrors] = useState({});
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false); 
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setCredentials({ ...credentials, [name]: value });
+    if (name === "password") {
+      setCredentials(prev => ({ ...prev, [name]: value.slice(0, 30) }));
+    } else if (name === "email") {
+      setCredentials(prev => ({ ...prev, [name]: value.slice(0, 40) }));
+    } else {
+      setCredentials(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const validateForm = () => {
     const errs = {};
     if (!credentials.email.trim()) errs.email = "Email is required";
     else if (!credentials.email.includes("@")) errs.email = "Invalid email address";
+    else if (credentials.email.length > 40) errs.email = "Email must be at most 40 characters";
 
     if (!credentials.password) errs.password = "Password is required";
     else if (credentials.password.length < 6)
       errs.password = "Password must be at least 6 characters";
+    else if (credentials.password.length > 30)
+      errs.password = "Password must be at most 30 characters";
 
     if (!credentials.role) errs.role = "Role is required";
     else if (!["voter", "candidate", "admin", "electoral_committee"].includes(credentials.role))
@@ -81,7 +90,6 @@ const Login = () => {
         "Login failed. Please check your credentials."
       );
     }
-
   };
 
   const handleBack = () => navigate("/");
@@ -129,6 +137,7 @@ const Login = () => {
             onChange={handleChange}
             placeholder={t("emailPlaceholder")}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all"
+            maxLength={40}
           />
           {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
         </div>
@@ -146,6 +155,7 @@ const Login = () => {
               onChange={handleChange}
               placeholder={t("passwordPlaceholder")}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all pr-10"
+              maxLength={30}
             />
             <button
               type="button"
@@ -187,16 +197,16 @@ const Login = () => {
           {t("login")}
         </button>
         <p className="text-left text-sm">
-          Don't have an account?{" "}
+          {t("noAccount")}?{" "}
           <Link
             to="/register"
             className="text-blue-600 underline hover:text-blue-800">
             {t("register")}
           </Link>
         </p>
-        
+
         <p className="text-left text-sm">
-          Registered as a candidate?{" "}
+          {t("registeredasCandidate")}?{" "}
           <Link
             to="/loginCandidate"
             className="text-blue-600 underline hover:text-blue-800">

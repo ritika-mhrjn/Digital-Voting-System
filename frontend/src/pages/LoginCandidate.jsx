@@ -20,9 +20,16 @@ const LoginCandidate = () => {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false); 
 
-  const handleChange = (e) => {
+    const handleChange = (e) => {
     const { name, value } = e.target;
-    setCredentials({ ...credentials, [name]: value });
+    
+    if (name === "password") {
+      setCredentials(prev => ({ ...prev, [name]: value.slice(0, 30) }));
+    } else if (name === "email") {
+      setCredentials(prev => ({ ...prev, [name]: value.slice(0, 40) }));
+    } else {
+      setCredentials(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const validateForm = () => {
@@ -73,7 +80,7 @@ const LoginCandidate = () => {
 
   };
 
-  const handleBack = () => navigate("/");
+  const handleBack = () => navigate("/login");
 
   const isAlreadyLoggedIn = !!user;
 
@@ -157,14 +164,6 @@ const LoginCandidate = () => {
         >
           {t("login")}
         </button>
-        <p className="text-left text-sm">
-          Don't have an account?{" "}
-          <Link
-            to="/register"
-            className="text-blue-600 underline hover:text-blue-800">
-            {t("register")}
-          </Link>
-        </p>
       </form>
     </div>
   );

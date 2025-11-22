@@ -44,7 +44,7 @@ const Registration = () => {
       setFormData((prev) => ({ ...prev, [name]: lettersOnly }));
 
     } else if (name === "district") {
-      const lettersOnly = value.replace(/[^a-zA-Z]/g, "").slice(0, 12);
+      const lettersOnly = value.replace(/[^a-zA-Z]/g, "").slice(0, 20);
       setFormData((prev) => ({ ...prev, [name]: lettersOnly }));
 
     } else if (name === "ward") {
@@ -62,13 +62,16 @@ const Registration = () => {
       setFormData((prev) => ({ ...prev, [name]: numbersOnly }));
 
     } else if (name === "password" || name === "confirmPassword") {
-      setFormData((prev) => ({ ...prev, [name]: value.slice(0, 18) }));
+      setFormData((prev) => ({ ...prev, [name]: value.slice(0, 30) }));
 
     } else if (name === "idType") {
       setFormData((prev) => ({ ...prev, [name]: value.slice(0, 15) }));
 
     } else if (name === "email") {
-      setFormData((prev) => ({ ...prev, [name]: value.slice(0, 20) }));
+      setFormData((prev) => ({ ...prev, [name]: value.slice(0, 40) }));
+
+    } else if (name === "voterId") {
+      setFormData((prev) => ({ ...prev, [name]: value.slice(0, 13) }));
 
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));

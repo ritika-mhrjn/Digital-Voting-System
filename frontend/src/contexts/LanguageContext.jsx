@@ -8,6 +8,21 @@ const translations = {
     welcome: "Welcome to NayaMat",
     nayamat: "Your voice matters. Participate in a secure, transparent, and easy to use digital voting system. Democracy is now at your fingertips. Every vote counts, and every citizen has the power to shape the future. Join a community of responsible voters and help build a fairer, more inclusive, and connected society for everyone.",
     nayamatfooter: " © 2025 Nayamat Nepal. All Rights Reserved.",
+    currentUpcoming: "Current & Upcoming Elections",
+    ongoingElections: "Ongoing Elections",
+    liveNow: "Live Now",
+    voteNow: " Vote Now",
+    loginToVote: "Login to Vote",
+    upcomingElections: "Upcoming Elections",
+    comingSoon: "Coming Soon",
+    checkBack: "Check back when the election starts to participate.",
+    recentElections: "Recent Elections",
+    noAccount: "Don't have an account",
+    registeredasCandidate: "Registered as a candidate",
+    completed: "Completed",
+    loadingElections: "Loading Elections...",
+    noElections: "No elections scheduled at the moment.",
+    checkBackLater: "Check back later for upcoming elections.",
 
     // Registration & Login
     registration: "Voter Registration",
@@ -132,13 +147,30 @@ const translations = {
     profilePhoto: "Profile Photo",
   },
 
- np: {
+  np: {
     english: "अंग्रेजी",
     nepali: "नेपाली",
     login: "लगइन",
     welcome: "नयाँमतमा स्वागत छ",
     nayamat: "तपाईंको आवाज महत्वपूर्ण छ। सुरक्षित, पारदर्शी, र प्रयोग गर्न सजिलो डिजिटल मतदान प्रणालीमा भाग लिनुहोस्। लोकतन्त्र अब तपाईंको औंलाको टोकाइमा। प्रत्येक मत गन्तव्यमा गयो र प्रत्येक नागरिकले भविष्य निर्माण गर्ने शक्ति राख्दछ। जिम्मेवार मतदाताहरूको समुदायमा सामेल हुनुहोस् र सबैका लागि न्यायोचित, समावेशी, र जडित समाज निर्माणमा योगदान दिनुहोस्।",
     nayamatfooter: " © 2025 नयाँमत नेपाल। सर्वाधिकार सुरक्षित।",
+    currentUpcoming: "हालका र आगामी चुनावहरू",
+    ongoingElections: "चालु चुनावहरू",
+    liveNow: "प्रत्यक्ष प्रसारणमा",
+    voteNow: "भोट हाल्नुहोस्",
+    loginToVote: "भोट हाल्न लगइन गर्नुहोस्",
+    upcomingElections: "आगामी चुनावहरू",
+    comingSoon: "चाँडै आउँदैछ",
+    checkBack: "चुनाव सुरु भएपछि सहभागी हुन फेरि जाँच गर्नुहोस्।",
+    recentElections: "हालै सम्पन्न भएका चुनावहरू",
+    noAccount: "खाता छैन ?",
+    registeredasCandidate: "उम्मेदवारको रूपमा दर्ता भयो",
+    completed: "सम्पन्न",
+    loadingElections: "चुनावहरू लोड हुँदैछन्...",
+    noElections: "हालका लागि कुनै चुनाव तय गरिएको छैन।",
+    checkBackLater: "आगामी चुनावहरूको जानकारीका लागि पछि फेरि जाँच गर्नुहोस्।",
+
+
 
     // Registration & Login
     registration: "मतदाता दर्ता",
@@ -260,7 +292,7 @@ const translations = {
     uploadPhoto: "फोटो अपलोड गर्नुहोस्",
     choosephoto: "फोटो चयन गर्नुहोस्",
     profilePhoto: "प्रोफाइल फोटो",
-}
+  }
 
 
 

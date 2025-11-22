@@ -9,7 +9,10 @@ import {
   UserCheck,
   BarChart2,
   Plus,
-  Upload,
+  Eye,
+  EyeOff,
+  Edit2,
+  Trash2,
   X
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -22,8 +25,9 @@ import {
   getVoters,
   updateElection,
   deleteElection,
-  verifyVoter,
-  addCandidateElectoral
+  addCandidateElectoral,
+  updateCandidate,
+  deleteCandidate
 } from "../api/endpoints";
 
 const ElectoralCommitteeDashboard = () => {
@@ -39,6 +43,7 @@ const ElectoralCommitteeDashboard = () => {
   const [editingId, setEditingId] = useState(null);
   const [editedDates, setEditedDates] = useState({ startDate: "", endDate: "" });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Candidate Registration Form States
   const [showCandidateForm, setShowCandidateForm] = useState(false);
@@ -57,7 +62,25 @@ const ElectoralCommitteeDashboard = () => {
   const [formErrors, setFormErrors] = useState({});
   const [candidateLoading, setCandidateLoading] = useState(false);
 
-  const positions = [ "Mayor"];
+  // Edit Candidate Modal States
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    age: "",
+    gender: "",
+    partyName: "",
+    position: "Mayor",
+    manifesto: "",
+    photo: "",
+    politicalSign: ""
+  });
+  const [editFormErrors, setEditFormErrors] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
+
+  const positions = ["Mayor"];
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: <Home className="w-5 h-5" /> },
@@ -73,7 +96,7 @@ const ElectoralCommitteeDashboard = () => {
     console.log('Has admin role:', user?.role === 'admin');
   }, [user]);
 
-  // Reusable function to fetch elections
+  // fetch elections
   const fetchElectionsData = async () => {
     try {
       const electionsResponse = await getElections();
@@ -85,7 +108,7 @@ const ElectoralCommitteeDashboard = () => {
     }
   };
 
-  // Reusable function to fetch voters
+  // fetch voters
   const fetchVotersData = async () => {
     try {
       const votersResponse = await getVoters();
@@ -120,28 +143,74 @@ const ElectoralCommitteeDashboard = () => {
     fetchData();
   }, []);
 
+  // Function to calculate end date
+  const calculateEndDate = (startDate) => {
+    if (!startDate) return '';
 
-  const handleFile=(e)=>{
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + 3);
+    return date.toISOString().split('T')[0];
+  };
+
+  const handleFile = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // Check file size (max 2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    alert('File size must be less than 2MB');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const image = reader.result;
+    const { name } = e.target;
+    setCandidateFormData(prev => ({ 
+      ...prev, 
+      [name]: image,
+      // Store file reference for actual upload
+      [`${name}File`]: file 
+    }));
+  };
+  reader.readAsDataURL(file);
+};
+
+  const handleEditFile = (e) => {
     const file = e.target.files[0];
-    console.log(e.target.files)
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = () => {
       const image = reader.result;
-      // console.log("Base64:", image);
-      const {name}=e.target
-      setCandidateFormData(prev=>({...prev,[name]:image}))
+      const { name } = e.target
+      setEditFormData(prev => ({ ...prev, [name]: image }))
     };
     reader.readAsDataURL(file);
   }
-  // Candidate Form Handlers
+
+  // Candidate Form Handlers with validation
   const handleCandidateInputChange = (e) => {
     const { name, value } = e.target;
-    setCandidateFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+
+    if (name === "fullName") {
+      const lettersOnly = value.replace(/[^a-zA-Z\s]/g, "").slice(0, 30);
+      setCandidateFormData(prev => ({ ...prev, [name]: lettersOnly }));
+    } else if (name === "password") {
+      setCandidateFormData(prev => ({ ...prev, [name]: value.slice(0, 30) }));
+    } else if (name === "partyName") {
+      const lettersOnly = value.replace(/[^a-zA-Z\s]/g, "").slice(0, 15);
+      setCandidateFormData(prev => ({ ...prev, [name]: lettersOnly }));
+    } else if (name === "email") {
+      setCandidateFormData(prev => ({ ...prev, [name]: value.slice(0, 40) }));
+    } else if (name === "age") {
+      const numbersOnly = value.replace(/[^0-9]/g, "").slice(0, 2);
+      setCandidateFormData(prev => ({ ...prev, [name]: numbersOnly }));
+    } else if (name === "manifesto") {
+      setCandidateFormData(prev => ({ ...prev, [name]: value.slice(0, 150) }));
+    } else {
+      setCandidateFormData(prev => ({ ...prev, [name]: value }));
+    }
 
     // Clear error when user starts typing
     if (formErrors[name]) {
@@ -152,24 +221,99 @@ const ElectoralCommitteeDashboard = () => {
     }
   };
 
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+
+    if (name === "fullName") {
+      const lettersOnly = value.replace(/[^a-zA-Z\s]/g, "").slice(0, 30);
+      setEditFormData(prev => ({ ...prev, [name]: lettersOnly }));
+    } else if (name === "password") {
+      setEditFormData(prev => ({ ...prev, [name]: value.slice(0, 30) }));
+    } else if (name === "partyName") {
+      const lettersOnly = value.replace(/[^a-zA-Z\s]/g, "").slice(0, 15);
+      setEditFormData(prev => ({ ...prev, [name]: lettersOnly }));
+    } else if (name === "email") {
+      setEditFormData(prev => ({ ...prev, [name]: value.slice(0, 40) }));
+    } else if (name === "age") {
+      const numbersOnly = value.replace(/[^0-9]/g, "").slice(0, 2);
+      setEditFormData(prev => ({ ...prev, [name]: numbersOnly }));
+    } else if (name === "manifesto") {
+      setEditFormData(prev => ({ ...prev, [name]: value.slice(0, 150) }));
+    } else {
+      setEditFormData(prev => ({ ...prev, [name]: value }));
+    }
+
+    // Clear error when user starts typing
+    if (editFormErrors[name]) {
+      setEditFormErrors(prev => ({
+        ...prev,
+        [name]: ""
+      }));
+    }
+  };
+
   const validateCandidateForm = () => {
     const errors = {};
 
     if (!candidateFormData.fullName.trim()) errors.fullName = "Full name is required";
+
     if (!candidateFormData.email.trim()) errors.email = "Email is required";
+    else if (!candidateFormData.email.includes("@")) errors.email = "Invalid email address";
+    else if (candidateFormData.email.length > 40) errors.email = "Email must be at most 40 characters";
+
     if (!candidateFormData.password) errors.password = "Password is required";
-    if (candidateFormData.password && candidateFormData.password.length < 6) errors.password = "Password must be at least 6 characters";
+    else if (candidateFormData.password.length < 6) errors.password = "Password must be at least 6 characters";
+    else if (candidateFormData.password.length > 30) errors.password = "Password must be at most 30 characters";
+
     if (!candidateFormData.age) errors.age = "Age is required";
-    if (candidateFormData.age && (candidateFormData.age < 18 || candidateFormData.age > 100)) errors.age = "Age must be between 18 and 100";
+    else if (candidateFormData.age < 21 || candidateFormData.age > 100) errors.age = "Age must be between 21 and 100";
+
     if (!candidateFormData.gender) errors.gender = "Gender is required";
+
     if (!candidateFormData.partyName.trim()) errors.partyName = "Party name is required";
+    else if (candidateFormData.partyName.length < 2) errors.partyName = "Party name must be at least 2 characters";
+    else if (candidateFormData.partyName.length > 15) errors.partyName = "Party name must be at most 15 characters";
+
     if (!candidateFormData.position) errors.position = "Position is required";
+
     if (!candidateFormData.manifesto.trim()) errors.manifesto = "Manifesto is required";
+    else if (candidateFormData.manifesto.length > 150) errors.manifesto = "Manifesto must be at most 150 characters";
+
     if (!candidateFormData.photo) errors.photo = "Photo is required";
     if (!candidateFormData.politicalSign) errors.politicalSign = "Political Sign is required";
 
-
     setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateEditForm = () => {
+    const errors = {};
+
+    if (!editFormData.fullName.trim()) errors.fullName = "Full name is required";
+
+    if (!editFormData.email.trim()) errors.email = "Email is required";
+    else if (!editFormData.email.includes("@")) errors.email = "Invalid email address";
+    else if (editFormData.email.length > 30) errors.email = "Email must be at most 30 characters";
+
+    if (!editFormData.password) errors.password = "Password is required";
+    else if (editFormData.password.length < 6) errors.password = "Password must be at least 6 characters";
+    else if (editFormData.password.length > 30) errors.password = "Password must be at most 30 characters";
+
+    if (!editFormData.age) errors.age = "Age is required";
+    else if (editFormData.age < 21 || editFormData.age > 100) errors.age = "Age must be between 21 and 100";
+
+    if (!editFormData.gender) errors.gender = "Gender is required";
+
+    if (!editFormData.partyName.trim()) errors.partyName = "Party name is required";
+    else if (editFormData.partyName.length < 2) errors.partyName = "Party name must be at least 2 characters";
+    else if (editFormData.partyName.length > 15) errors.partyName = "Party name must be at most 15 characters";
+
+    if (!editFormData.position) errors.position = "Position is required";
+
+    if (!editFormData.manifesto.trim()) errors.manifesto = "Manifesto is required";
+    else if (editFormData.manifesto.length > 150) errors.manifesto = "Manifesto must be at most 150 characters";
+
+    setEditFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
@@ -180,7 +324,6 @@ const ElectoralCommitteeDashboard = () => {
 
     setCandidateLoading(true);
     try {
-      // Prepare candidate data according to your schema
       const candidatePayload = {
         fullName: candidateFormData.fullName,
         email: candidateFormData.email,
@@ -215,7 +358,6 @@ const ElectoralCommitteeDashboard = () => {
         setFormErrors({});
         setShowCandidateForm(false);
 
-        // Refresh candidates list
         await fetchCandidatesData();
 
         alert("Candidate registered successfully!");
@@ -231,12 +373,141 @@ const ElectoralCommitteeDashboard = () => {
     }
   };
 
+  // Edit Candidate Functions
+  const handleEditCandidate = (candidate) => {
+    setEditingCandidate(candidate);
+    setEditFormData({
+      fullName: candidate.fullName || "",
+      email: candidate.email || "",
+      password: "",
+      age: candidate.age || "",
+      gender: candidate.gender || "",
+      partyName: candidate.partyName || "",
+      position: candidate.position || "Mayor",
+      manifesto: candidate.manifesto || "",
+      photo: candidate.photo || "",
+      politicalSign: candidate.politicalSign || ""
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateEditForm()) return;
+
+    setEditLoading(true);
+    try {
+      const candidatePayload = {
+        fullName: editFormData.fullName,
+        email: editFormData.email,
+        password: editFormData.password,
+        age: parseInt(editFormData.age),
+        gender: editFormData.gender,
+        partyName: editFormData.partyName,
+        position: editFormData.position,
+        manifesto: editFormData.manifesto,
+        photo: editFormData.photo,
+        politicalSign: editFormData.politicalSign
+      };
+
+      console.log('Updating candidate:', candidatePayload);
+
+      const response = await updateCandidate(editingCandidate._id, candidatePayload);
+
+      if (response.success || response.data) {
+        setShowEditModal(false);
+        setEditingCandidate(null);
+        setEditFormData({
+          fullName: "",
+          email: "",
+          password: "",
+          age: "",
+          gender: "",
+          partyName: "",
+          position: "",
+          manifesto: "",
+          photo: "",
+          politicalSign: ""
+        });
+        setEditFormErrors({});
+
+        // Refresh candidates list
+        await fetchCandidatesData();
+
+        alert("Candidate updated successfully!");
+
+        setActiveSection("candidates");
+      } else {
+        alert(response.message || "Failed to update candidate");
+      }
+    } catch (error) {
+      console.error("Error updating candidate:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to update candidate";
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteCandidate = async (candidateId) => {
+    if (!window.confirm("Are you sure you want to delete this candidate? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await deleteCandidate(candidateId);
+
+      if (response.success) {
+        setCandidates(prevCandidates =>
+          prevCandidates.filter(candidate => candidate._id !== candidateId)
+        );
+
+        alert("Candidate deleted successfully!");
+      } else {
+        alert(response.message || "Failed to delete candidate");
+        await fetchCandidatesData();
+      }
+    } catch (error) {
+      console.error("Error deleting candidate:", error);
+      alert("Failed to delete candidate");
+      await fetchCandidatesData();
+    }
+  };
+
   // Handle election form changes
   const handleChange = (e) => {
-    setNewElection({
-      ...newElection,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+
+    if (name === "startDate") {
+      const endDate = calculateEndDate(value);
+      setNewElection({
+        ...newElection,
+        startDate: value,
+        endDate: endDate
+      });
+    } else {
+      setNewElection({
+        ...newElection,
+        [name]: value
+      });
+    }
+  };
+
+  // Handle edited dates changes (for managing elections)
+  const handleEditedDatesChange = (field, value) => {
+    if (field === "startDate") {
+      const endDate = calculateEndDate(value);
+      setEditedDates({
+        startDate: value,
+        endDate: endDate
+      });
+    } else {
+      setEditedDates(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
   };
 
   // Create election function
@@ -288,34 +559,6 @@ const ElectoralCommitteeDashboard = () => {
     }
   };
 
-  // Verify voter function
-  const handleVerifyVoter = async (voterId) => {
-    if (!window.confirm("Are you sure you want to verify this voter?")) {
-      return;
-    }
-
-    try {
-      const response = await verifyVoter(voterId);
-
-      if (response.success) {
-        // Update the voter's verification status locally
-        setVoters(prevVoters =>
-          prevVoters.map(voter =>
-            voter._id === voterId || voter.id === voterId
-              ? { ...voter, verified: true }
-              : voter
-          )
-        );
-        alert("Voter verified successfully!");
-      } else {
-        alert(response.message || "Failed to verify voter");
-      }
-    } catch (error) {
-      console.error("Error verifying voter:", error);
-      alert("Failed to verify voter");
-    }
-  };
-
   // DELETE election
   const handleDeleteElection = async (electionId) => {
     if (!window.confirm("Are you sure you want to DELETE this election? This action cannot be undone.")) {
@@ -327,7 +570,6 @@ const ElectoralCommitteeDashboard = () => {
       const response = await deleteElection(electionId);
 
       if (response.success) {
-        // Update state immediately for better UX
         setElections(prevElections =>
           prevElections.filter(election => election._id !== electionId)
         );
@@ -383,6 +625,10 @@ const ElectoralCommitteeDashboard = () => {
   };
 
   const handleBack = () => setSelectedCandidate(null);
+
+  const handleCandidateClick = (candidate) => {
+    setSelectedCandidate(candidate);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -449,7 +695,7 @@ const ElectoralCommitteeDashboard = () => {
                       placeholder="Enter Election Location"
                       value={newElection.title}
                       onChange={handleChange}
-                      className="w-2/3 border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-[#bbf3ea]"
+                      className="w-2/3 border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-600"
                     />
                   </div>
 
@@ -463,7 +709,7 @@ const ElectoralCommitteeDashboard = () => {
                       value={newElection.startDate}
                       onChange={handleChange}
                       min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
-                      className="w-2/3 border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-[#bbf3ea]"
+                      className="w-2/3 border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-600"
                     />
                   </div>
 
@@ -477,7 +723,7 @@ const ElectoralCommitteeDashboard = () => {
                       value={newElection.endDate}
                       onChange={handleChange}
                       min={newElection.startDate || new Date(Date.now() + 86400000).toISOString().split("T")[0]}
-                      className="w-2/3 border border-gray-400 p-2 rounded focus:outline-none focus:ring-2 focus:ring-[#bbf3ea]"
+                      className="w-2/3 border border-gray-400 p-2 rounded focus:outline-none focus:ring focus:ring-blue-600"
                     />
                   </div>
                   <button
@@ -516,18 +762,14 @@ const ElectoralCommitteeDashboard = () => {
                             <input
                               type="date"
                               value={editedDates.startDate}
-                              onChange={(ev) =>
-                                setEditedDates({ ...editedDates, startDate: ev.target.value })
-                              }
+                              onChange={(ev) => handleEditedDatesChange('startDate', ev.target.value)}
                               min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
                               className="border p-1 rounded text-sm"
                             />
                             <input
                               type="date"
                               value={editedDates.endDate}
-                              onChange={(ev) =>
-                                setEditedDates({ ...editedDates, endDate: ev.target.value })
-                              }
+                              onChange={(ev) => handleEditedDatesChange('endDate', ev.target.value)}
                               min={
                                 editedDates.startDate
                                   ? editedDates.startDate
@@ -700,7 +942,7 @@ const ElectoralCommitteeDashboard = () => {
                         {/* Full Name */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Full Name *
+                            Full Name <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
@@ -708,8 +950,9 @@ const ElectoralCommitteeDashboard = () => {
                             required
                             value={candidateFormData.fullName}
                             onChange={handleCandidateInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
                             placeholder="Enter full name"
+                            maxLength={30}
                           />
                           {formErrors.fullName && (
                             <p className="text-red-500 text-sm mt-1">{formErrors.fullName}</p>
@@ -719,7 +962,7 @@ const ElectoralCommitteeDashboard = () => {
                         {/* Email */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Email *
+                            Email <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="email"
@@ -727,8 +970,9 @@ const ElectoralCommitteeDashboard = () => {
                             required
                             value={candidateFormData.email}
                             onChange={handleCandidateInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
                             placeholder="Enter email address"
+                            maxLength={40}
                           />
                           {formErrors.email && (
                             <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
@@ -738,17 +982,31 @@ const ElectoralCommitteeDashboard = () => {
                         {/* Password */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Password *
+                            Password <span className="text-red-500">*</span>
                           </label>
-                          <input
-                            type="password"
-                            name="password"
-                            required
-                            value={candidateFormData.password}
-                            onChange={handleCandidateInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter password"
-                          />
+                          <div className="relative">
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              name="password"
+                              required
+                              value={candidateFormData.password}
+                              onChange={handleCandidateInputChange}
+                              className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                              placeholder="Enter password"
+                              maxLength={30}
+                            />
+                            <button
+                              type="button"
+                              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? (
+                                <Eye className="w-5 h-5" />
+                              ) : (
+                                <EyeOff className="w-5 h-5" />
+                              )}
+                            </button>
+                          </div>
                           {formErrors.password && (
                             <p className="text-red-500 text-sm mt-1">{formErrors.password}</p>
                           )}
@@ -757,7 +1015,7 @@ const ElectoralCommitteeDashboard = () => {
                         {/* Party Name */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Party Name *
+                            Party Name <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
@@ -765,8 +1023,9 @@ const ElectoralCommitteeDashboard = () => {
                             required
                             value={candidateFormData.partyName}
                             onChange={handleCandidateInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
                             placeholder="Enter party name"
+                            maxLength={15}
                           />
                           {formErrors.partyName && (
                             <p className="text-red-500 text-sm mt-1">{formErrors.partyName}</p>
@@ -776,7 +1035,7 @@ const ElectoralCommitteeDashboard = () => {
                         {/* Age */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Age *
+                            Age <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="number"
@@ -786,8 +1045,9 @@ const ElectoralCommitteeDashboard = () => {
                             max="100"
                             value={candidateFormData.age}
                             onChange={handleCandidateInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
                             placeholder="Minimum 21 years"
+                            maxLength={2}
                           />
                           {formErrors.age && (
                             <p className="text-red-500 text-sm mt-1">{formErrors.age}</p>
@@ -797,14 +1057,14 @@ const ElectoralCommitteeDashboard = () => {
                         {/* Gender */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Gender *
+                            Gender <span className="text-red-500">*</span>
                           </label>
                           <select
                             name="gender"
                             required
                             value={candidateFormData.gender}
                             onChange={handleCandidateInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
                           >
                             <option value="">Select Gender</option>
                             <option value="male">Male</option>
@@ -814,19 +1074,52 @@ const ElectoralCommitteeDashboard = () => {
                           {formErrors.gender && (
                             <p className="text-red-500 text-sm mt-1">{formErrors.gender}</p>
                           )}
+                        </div>   
+
+                        {/* Political Sign  */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Political Symbol <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="file"
+                            name="politicalSign"
+                            onChange={handleFile}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                            placeholder="Enter political symbol URL"
+                          />
+                          {formErrors.politicalSign && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.politicalSign}</p>
+                          )}
+                        </div>
+
+                        {/* Photo */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Photo <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="file"
+                            name="photo"
+                            onChange={handleFile}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                          />
+                          {formErrors.photo && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.photo}</p>
+                          )}
                         </div>
 
                         {/* Position */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Position *
+                            Position <span className="text-red-500">*</span>
                           </label>
                           <select
                             name="position"
                             required
                             value={candidateFormData.position}
                             onChange={handleCandidateInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
                           >
                             <option value="">Select Position</option>
                             {positions.map((position) => (
@@ -840,43 +1133,10 @@ const ElectoralCommitteeDashboard = () => {
                           )}
                         </div>
 
-                        {/* Photo URL */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Photo URL
-                          </label>
-                          <input
-                            type="file"
-                            name="photo"
-                            onChange={handleFile}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          {formErrors.photo && (
-                            <p className="text-red-500 text-sm mt-1">{formErrors.photo}</p>
-                          )}
-                        </div>
-
-                        {/* Political Sign URL */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Political Symbol URL
-                          </label>
-                          <input
-                            type="file"
-                            name="politicalSign"
-                            onChange={handleFile}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter political symbol URL"
-                          />
-                          {formErrors.politicalSign && (
-                            <p className="text-red-500 text-sm mt-1">{formErrors.politicalSign}</p>
-                          )}
-                        </div>
-
                         {/* Manifesto */}
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Manifesto *
+                            Manifesto <span className="text-red-500">*</span>
                           </label>
                           <textarea
                             name="manifesto"
@@ -884,8 +1144,9 @@ const ElectoralCommitteeDashboard = () => {
                             value={candidateFormData.manifesto}
                             onChange={handleCandidateInputChange}
                             rows={4}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
                             placeholder="Enter candidate's manifesto and promises"
+                            maxLength={150}
                           />
                           {formErrors.manifesto && (
                             <p className="text-red-500 text-sm mt-1">{formErrors.manifesto}</p>
@@ -898,7 +1159,7 @@ const ElectoralCommitteeDashboard = () => {
                         <button
                           type="button"
                           onClick={() => setShowCandidateForm(false)}
-                          className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                          className="px-6 py-2 text-white border border-gray-300 bg-gray-500 hover:bg-gray-600 rounded-md transition-colors"
                         >
                           Cancel
                         </button>
@@ -944,17 +1205,41 @@ const ElectoralCommitteeDashboard = () => {
                         <div
                           key={c._id || c.id}
                           className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer"
-                          onClick={() => setSelectedCandidate(c)}
+                          onClick={() => handleCandidateClick(c)}
                         >
-                          <div className="flex items-center gap-4 mb-4">
-                            <img
-                              src={c.photo || c.profilePic || "/default-profile.png"}
-                              alt={c.fullName || c.name}
-                              className="w-16 h-16 rounded-full object-cover border"
-                            />
-                            <div>
-                              <h3 className="font-semibold text-lg text-gray-800">{c.fullName || c.name}</h3>
-                              <p className="text-blue-600 font-medium">{c.partyName || c.party}</p>
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-4 flex-1">
+                              <img
+                                src={c.photo || c.profilePic || "/default-profile.png"}
+                                alt={c.fullName || c.name}
+                                className="w-16 h-16 rounded-full object-cover border"
+                              />
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-lg text-gray-800">{c.fullName || c.name}</h3>
+                                <p className="text-blue-600 font-medium">{c.partyName || c.party}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditCandidate(c);
+                                }}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                                title="Edit Candidate"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteCandidate(c._id);
+                                }}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                title="Delete Candidate"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -964,6 +1249,16 @@ const ElectoralCommitteeDashboard = () => {
                             <p className="text-sm text-gray-600">
                               <span className="font-medium">Party:</span> {c.partyName || c.party}
                             </p>
+                            {c.politicalSign && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm text-gray-600">Symbol:</span>
+                                <img
+                                  src={c.politicalSign}
+                                  alt="Political Symbol"
+                                  className="w-8 h-8 object-cover rounded"
+                                />
+                              </div>
+                            )}
                             <p className="text-sm text-gray-600 line-clamp-2">
                               {c.manifesto || c.bio}
                             </p>
@@ -975,7 +1270,7 @@ const ElectoralCommitteeDashboard = () => {
                 </>
               ) : (
                 // Candidate Detail View
-                <div className="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto space-y-4">
+                <div className="bg-white p-6 rounded-lg shadow-md max-w-4xl mx-auto space-y-6">
                   <div className="flex items-center justify-between mb-4">
                     <button
                       onClick={handleBack}
@@ -985,17 +1280,62 @@ const ElectoralCommitteeDashboard = () => {
                       <span>Back to Candidates</span>
                     </button>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <img 
-                      src={selectedCandidate.photo || selectedCandidate.profilePic || "/default-profile.png"} 
-                      alt={selectedCandidate.fullName || selectedCandidate.name} 
-                      className="w-24 h-24 rounded-full object-cover border" 
-                    />
-                    <div>
-                      <h3 className="text-2xl font-semibold">{selectedCandidate.fullName || selectedCandidate.name}</h3>
-                      <p className="text-gray-600">{selectedCandidate.email}</p>
-                      <p className="text-blue-600 font-medium">{selectedCandidate.partyName || selectedCandidate.party}</p>
-                      <p className="mt-2">{selectedCandidate.manifesto || selectedCandidate.bio}</p>
+
+                  <div className="flex flex-col md:flex-row gap-8">
+                    {/* Candidate Photo and Basic Info */}
+                    <div className="flex flex-col items-center md:items-start space-y-4">
+                      <img
+                        src={selectedCandidate.photo || selectedCandidate.profilePic || "/default-profile.png"}
+                        alt={selectedCandidate.fullName || selectedCandidate.name}
+                        className="w-32 h-32 rounded-full object-cover border-4 border-blue-200"
+                      />
+                      <div className="text-center md:text-left">
+                        <h3 className="text-2xl font-semibold text-gray-800">{selectedCandidate.fullName || selectedCandidate.name}</h3>
+                        <p className="text-gray-600">{selectedCandidate.email}</p>
+                        <p className="text-blue-600 font-medium text-lg mt-1">{selectedCandidate.partyName || selectedCandidate.party}</p>
+                      </div>
+                    </div>
+
+                    {/* Candidate Details */}
+                    <div className="flex-1 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Position</p>
+                          <p className="text-lg font-semibold text-gray-800">{selectedCandidate.position}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Age</p>
+                          <p className="text-lg font-semibold text-gray-800">{selectedCandidate.age} years</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Gender</p>
+                          <p className="text-lg font-semibold text-gray-800 capitalize">{selectedCandidate.gender}</p>
+                        </div>
+                      </div>
+
+                      {/* Political Symbol */}
+                      {selectedCandidate.politicalSign && (
+                        <div className="border-t pt-4">
+                          <p className="text-sm font-medium text-gray-500 mb-2">Political Symbol</p>
+                          <div className="flex items-center gap-4">
+                            <img
+                              src={selectedCandidate.politicalSign}
+                              alt="Political Symbol"
+                              className="w-20 h-20 object-cover rounded-lg border"
+                            />
+                            <div>
+                              <p className="font-semibold text-gray-800">{selectedCandidate.partyName || selectedCandidate.party}</p>
+                              <p className="text-sm text-gray-600">Party Symbol</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Manifesto */}
+                      <div className="border-t pt-4">
+                        <p className="text-sm font-medium text-gray-500 mb-2">Manifesto</p>
+                        <p className="text-gray-700 leading-relaxed">{selectedCandidate.manifesto || selectedCandidate.bio}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1031,18 +1371,14 @@ const ElectoralCommitteeDashboard = () => {
                           <input
                             type="date"
                             value={editedDates.startDate}
-                            onChange={(ev) =>
-                              setEditedDates({ ...editedDates, startDate: ev.target.value })
-                            }
+                            onChange={(ev) => handleEditedDatesChange('startDate', ev.target.value)}
                             min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
                             className="border p-1 rounded text-sm"
                           />
                           <input
                             type="date"
                             value={editedDates.endDate}
-                            onChange={(ev) =>
-                              setEditedDates({ ...editedDates, endDate: ev.target.value })
-                            }
+                            onChange={(ev) => handleEditedDatesChange('endDate', ev.target.value)}
                             min={
                               editedDates.startDate
                                 ? editedDates.startDate
@@ -1093,6 +1429,294 @@ const ElectoralCommitteeDashboard = () => {
           )}
         </main>
       </div>
+
+      {/* Edit Candidate Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div
+            className="absolute inset-0 bg-transparent"
+            onClick={() => setShowEditModal(false)}
+          ></div>
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 relative z-10 border-2 border-blue-300 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6 pb-4 border-b-2 border-gray-200">
+              <h3 className="text-2xl font-bold text-blue-800">Edit Candidate</h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-500 hover:text-gray-700 transition-colors p-1 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Full Name */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="fullName"
+                    required
+                    value={editFormData.fullName}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter full name"
+                    maxLength={30}
+                  />
+                  {editFormErrors.fullName && (
+                    <p className="text-red-500 text-sm">{editFormErrors.fullName}</p>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    value={editFormData.email}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter email address"
+                    maxLength={40}
+                  />
+                  {editFormErrors.email && (
+                    <p className="text-red-500 text-sm">{editFormErrors.email}</p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      required
+                      value={editFormData.password}
+                      onChange={handleEditInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter password"
+                      maxLength={30}
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <Eye className="w-5 h-5" />
+                      ) : (
+                        <EyeOff className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                  {editFormErrors.password && (
+                    <p className="text-red-500 text-sm">{editFormErrors.password}</p>
+                  )}
+                </div>
+
+                {/* Party Name */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Party Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="partyName"
+                    required
+                    value={editFormData.partyName}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter party name"
+                    maxLength={15}
+                  />
+                  {editFormErrors.partyName && (
+                    <p className="text-red-500 text-sm">{editFormErrors.partyName}</p>
+                  )}
+                </div>
+
+                {/* Age */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Age <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="age"
+                    required
+                    min="21"
+                    max="100"
+                    value={editFormData.age}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Minimum 21 years"
+                    maxLength={2}
+                  />
+                  {editFormErrors.age && (
+                    <p className="text-red-500 text-sm">{editFormErrors.age}</p>
+                  )}
+                </div>
+
+                {/* Gender */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Gender <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="gender"
+                    required
+                    value={editFormData.gender}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                  {editFormErrors.gender && (
+                    <p className="text-red-500 text-sm">{editFormErrors.gender}</p>
+                  )}
+                </div>
+
+                {/* Political Sign */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Political Symbol <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    name="politicalSign"
+                    onChange={handleEditFile}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {editFormData.politicalSign && (
+                    <p className="text-green-600 text-sm">Symbol selected</p>
+                  )}
+                  {editFormErrors.politicalSign && (
+                    <p className="text-red-500 text-sm">{editFormErrors.politicalSign}</p>
+                  )}
+                </div>
+
+                {/* Photo */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Photo <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    name="photo"
+                    onChange={handleEditFile}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {editFormData.photo && (
+                    <p className="text-green-600 text-sm">Photo selected</p>
+                  )}
+                  {editFormErrors.photo && (
+                    <p className="text-red-500 text-sm">{editFormErrors.photo}</p>
+                  )}
+                </div>
+
+                {/* Position */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Position <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="position"
+                    required
+                    value={editFormData.position}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select Position</option>
+                    {positions.map((position) => (
+                      <option key={position} value={position}>
+                        {position}
+                      </option>
+                    ))}
+                  </select>
+                  {editFormErrors.position && (
+                    <p className="text-red-500 text-sm">{editFormErrors.position}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Manifesto */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Manifesto <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="manifesto"
+                  required
+                  value={editFormData.manifesto}
+                  onChange={handleEditInputChange}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter candidate's manifesto and promises"
+                  maxLength={150}
+                />
+                {editFormErrors.manifesto && (
+                  <p className="text-red-500 text-sm">{editFormErrors.manifesto}</p>
+                )}
+              </div>
+
+              {/* Current Images Preview */}
+              {(editingCandidate?.photo || editingCandidate?.politicalSign) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                  {editingCandidate.photo && (
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Current Photo</p>
+                      <img
+                        src={editingCandidate.photo}
+                        alt="Current candidate"
+                        className="w-32 h-32 object-cover rounded-lg mx-auto border"
+                      />
+                    </div>
+                  )}
+                  {editingCandidate.politicalSign && (
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Current Symbol</p>
+                      <img
+                        src={editingCandidate.politicalSign}
+                        alt="Current political symbol"
+                        className="w-32 h-32 object-cover rounded-lg mx-auto border"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Form Actions */}
+              <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-6 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="px-6 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800 transition-colors disabled:opacity-50"
+                >
+                  {editLoading ? "Updating..." : "Update Candidate"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
