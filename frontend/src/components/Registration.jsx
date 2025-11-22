@@ -111,6 +111,32 @@ const Registration = () => {
       setLoading(true);
 
       try {
+        // ✅ IMPORTANT: Register biometrics FIRST using voterId (before user account creation)
+        if (biometricData) {
+          const API_BASE = import.meta.env.VITE_API_URL || '';
+          const images = Array.isArray(biometricData.data) ? biometricData.data : [biometricData.data];
+          const voterId = formData.voterId; // Use voterId, not userId
+          
+          try {
+            const bioRes = await fetch(`${API_BASE}/api/biometrics/face/register-batch`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: voterId, images, consent: true }),
+            });
+            const bioData = await bioRes.json();
+            if (!bioRes.ok || !bioData.success) {
+              console.warn('Biometric registration failed (non-blocking)', bioData);
+              // Continue with registration anyway - allows recovery if biometric service has issues
+            } else {
+              console.log('Biometric registration succeeded', bioData);
+            }
+          } catch (bioErr) {
+            console.warn('Biometric registration error (non-blocking)', bioErr);
+            // Continue - biometric service may be temporarily unavailable
+          }
+        }
+
+        // Then register the user account
         const payload = {
           role: formData.role,
           fullName: formData.fullName,
@@ -130,24 +156,6 @@ const Registration = () => {
         // Register user
         const response = await registerUser(payload);
         console.log("User registered successfully:", response);
-
-        // Post-registration: upload face images if provided
-        const userId = response?.data?.id || response?.data?._id || response?.id || null;
-        if (userId && biometricData) {
-          const API_BASE = import.meta.env.VITE_API_URL || '';
-          const images = Array.isArray(biometricData.data) ? biometricData.data : [biometricData.data];
-
-          await fetch(`${API_BASE}/api/biometrics/face/register-batch`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, images, consent: true }),
-          })
-            .then(res => res.json())
-            .then(r => {
-              if (!r || !r.success) console.warn('Biometric register-batch returned error', r);
-            })
-            .catch(err => console.warn('Post-registration biometric upload failed', err));
-        }
 
         alert(t("registrationSuccess") || "Registration successful!");
         navigate("/login");
