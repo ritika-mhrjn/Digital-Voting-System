@@ -19,7 +19,40 @@ exports.getPosts = async (req, res) => {
       .populate("election", "title startDate endDate")
       .sort({ createdAt: -1 });
 
-    return res.json({ success: true, data: posts });
+    // Get reactions and comments for each post
+    const postsWithInteractions = await Promise.all(
+  posts.map(async (post) => {
+    const reactions = await Reaction.find({ post: post._id })
+      .populate('user', 'fullName profilePicture'); // Use profilePicture, not profilePic
+    
+    const comments = await Comment.find({ post: post._id })
+      .populate('user', 'fullName profilePicture') // Use profilePicture here too
+      .sort({ createdAt: -1 });
+
+    return {
+      ...post.toObject(),
+      reactions: reactions.map(r => ({
+        user_id: r.user._id,
+        user: {
+          fullName: r.user.fullName,
+          profilePic: r.user.profilePicture 
+        },
+        type: r.type
+      })),
+      comments: comments.map(c => ({
+        _id: c._id,
+        user_id: c.user._id,
+        user: {
+          fullName: c.user.fullName,
+          profilePic: c.user.profilePicture 
+        },
+        text: c.text,
+        timestamp: c.createdAt
+      }))
+    };
+  })
+);
+    return res.json({ success: true, data: postsWithInteractions });
   } catch (err) {
     console.error("getPosts error:", err);
     return res.status(500).json({ success: false, error: "Failed to fetch posts" });
@@ -76,64 +109,54 @@ exports.deletePost = async (req, res) => {
 exports.addReaction = async (req, res) => {
   try {
     const postId = req.params.postId;
-    const { userId } = req.body;
+    const { userId, type = "like" } = req.body; // Add type parameter
 
     if (!postId || !userId) {
       return res.status(400).json({ error: "Missing fields" });
     }
 
-    const find=await Reaction.find({user:userId,post:postId})
-    if(find){
-      const removeLike=await Reaction.findByIdAndDelete(find._id)
-      if(removeLike){
-        return res.json({message:'Like Removed successfully',success:true})
+    // Find existing reaction
+    const existingReaction = await Reaction.findOne({ user: userId, post: postId });
+    
+    if (existingReaction) {
+      if (existingReaction.type === type) {
+        // Remove reaction if same type clicked again
+        await Reaction.findByIdAndDelete(existingReaction._id);
+        await Post.updateOne({ _id: postId }, { $inc: { reactionsCount: -1 } });
+        
+        return res.json({ 
+          message: 'Reaction removed successfully', 
+          success: true,
+          removed: true 
+        });
+      } else {
+        // Update reaction type
+        existingReaction.type = type;
+        await existingReaction.save();
+        
+        return res.json({ 
+          success: true, 
+          reaction: existingReaction,
+          updated: true 
+        });
       }
-      else{
-        return res.json({message:'Failed to remove like',success:false})
-      }
-    }
+    } else {
+      // Create new reaction
+      const reaction = await Reaction.create({
+        user: userId,
+        post: postId,
+        type: type
+      });
 
-    // Insert reaction
-    const reaction = await Reaction.create({
-      user: asId(userId),
-      post: asId(postId),
-      timestamp: new Date(),
-    });
+      // Increment reactions count
+      await Post.updateOne({ _id: postId }, { $inc: { reactionsCount: 1 } });
 
-    // Increment reactions count
-    await Post.updateOne({ _id: asId(postId) }, { $inc: { reactionsCount: 1 } });
-
-    // Fetch post to identify election
-    const post = await Post.findById(asId(postId));
-    const electionId = post?.election;
-
-    // Trigger AI prediction
-    if (electionId && AI_PREDICTION_URL) {
-      try {
-        const url = `${AI_PREDICTION_URL.replace(/\/$/, "")}/predict?election_id=${encodeURIComponent(
-          electionId
-        )}`;
-        const resp = await axios.get(url, { timeout: 10000 });
-
-        const io = req.app.get("io");
-        if (io) {
-          io.to(electionId.toString()).emit("prediction:update", resp.data);
-        }
-      } catch (err) {
-        console.warn("AI refresh failed:", err.message);
-      }
-    }
-
-    // Socket emit for UI
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("reaction:created", {
-        postId,
-        userId,
+      return res.json({ 
+        success: true, 
+        reactionId: reaction._id,
+        added: true 
       });
     }
-
-    return res.json({ success: true, reactionId: reaction._id });
   } catch (err) {
     console.error("addReaction error:", err);
     return res.status(500).json({ error: err.message });
@@ -142,29 +165,26 @@ exports.addReaction = async (req, res) => {
 exports.addComment = async (req, res) => {
   try {
     const postId = req.params.postId;
-    const { user_id, text } = req.body;
+    const { userId, text } = req.body; // Changed from user_id to userId
 
-    if (!postId || !user_id || !text) {
+    if (!postId || !userId || !text) {
       return res.status(400).json({ error: "Missing fields" });
     }
 
     const comment = await Comment.create({
-      user_id: asId(user_id),
-      post_id: asId(postId),
+      user: userId, // Fixed field name
+      post: postId, // Fixed field name
       text,
-      timestamp: new Date(),
     });
 
     // Fetch post for election
-    const post = await Post.findById(asId(postId));
+    const post = await Post.findById(postId);
     const electionId = post?.election;
 
     // Update AI model
     if (electionId && AI_PREDICTION_URL) {
       try {
-        const url = `${AI_PREDICTION_URL.replace(/\/$/, "")}/predict?election_id=${encodeURIComponent(
-          electionId
-        )}`;
+        const url = `${AI_PREDICTION_URL.replace(/\/$/, "")}/predict?election_id=${encodeURIComponent(electionId)}`;
         const resp = await axios.get(url, { timeout: 10000 });
 
         const io = req.app.get("io");
@@ -176,17 +196,24 @@ exports.addComment = async (req, res) => {
       }
     }
 
+    // Populate the comment with user data before sending response
+    const populatedComment = await Comment.findById(comment._id)
+      .populate('user', 'fullName profilePic');
+
     // Comment event to frontend
     const io = req.app.get("io");
     if (io) {
       io.emit("comment:created", {
         postId,
-        user_id,
+        userId,
         text,
       });
     }
 
-    return res.json({ success: true, commentId: comment._id });
+    return res.json({ 
+      success: true, 
+      comment: populatedComment // Send populated comment
+    });
   } catch (err) {
     console.error("addComment error:", err);
     return res.status(500).json({ error: "Failed to add comment" });

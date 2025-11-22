@@ -605,89 +605,130 @@ const AdminDashboard = () => {
     </div>
   );
 
-  const CandidateManagementSection = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-indigo-500/90">Candidate Information</h2>
+const CandidateManagementSection = () => (
+  <div className="space-y-6">
+    <div className="flex justify-between items-center">
+      <h2 className="text-3xl font-bold text-indigo-500/90">Candidate Information</h2>
+    </div>
+
+    {/* Gender Statistics Cards */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+        <div className="flex items-center">
+          <UserCheck className="w-8 h-8 text-blue-500 mr-3" />
+          <div>
+            <p className="text-2xl font-bold text-gray-800">{candidates.length}</p>
+            <p className="text-sm text-gray-600">Total Candidates</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+        <div className="flex items-center">
+          <User className="w-8 h-8 text-green-500 mr-3" />
+          <div>
+            <p className="text-2xl font-bold text-gray-800">
+              {candidates.filter(c => c.gender === 'male').length}
+            </p>
+            <p className="text-sm text-gray-600">Male Candidates</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-white p-4 rounded-lg shadow border-l-4 border-pink-500">
+        <div className="flex items-center">
+          <User className="w-8 h-8 text-pink-500 mr-3" />
+          <div>
+            <p className="text-2xl font-bold text-gray-800">
+              {candidates.filter(c => c.gender === 'female').length}
+            </p>
+            <p className="text-sm text-gray-600">Female Candidates</p>
+          </div>
+        </div>
       </div>
 
-      {/* Candidates Table */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-[#0acbae]">Registered Candidates</h3>
-          <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
-            {candidates.length} candidates
-          </span>
+      <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
+        <div className="flex items-center">
+          <Users className="w-8 h-8 text-purple-500 mr-3" />
+          <div>
+            <p className="text-2xl font-bold text-gray-800">
+              {candidates.filter(c => c.gender === 'other').length}
+            </p>
+            <p className="text-sm text-gray-600">Other</p>
+          </div>
         </div>
-        
-        {candidatesLoading ? (
-          <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
-            <p className="mt-2">Loading candidates...</p>
-          </div>
-        ) : candidates.length === 0 ? (
-          <div className="text-center py-8">
-            <UserCheck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">No candidates registered yet.</p>
-            <p className="text-gray-400">Candidates will appear here once registered by the electoral committee.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Candidate</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Email</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Party</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Position</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Age</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Gender</th>
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((candidate) => (
-                  <tr key={candidate._id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
-                          <User className="w-4 h-4 text-indigo-600" />
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-800 block">{candidate.fullName}</span>
-                          {candidate.photo && (
-                            <span className="text-xs text-gray-500">Has photo</span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {candidate.email}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-gray-600">{candidate.partyName}</td>
-                    <td className="py-3 px-4">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                        {candidate.position}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {candidate.age} years
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-gray-600 capitalize">{candidate.gender}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
-  );
+
+    {/* Candidates Grid - View Only */}
+    <div className="bg-white p-6 rounded-lg shadow-md">
+      {candidatesLoading ? (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
+          <p className="mt-2">Loading candidates...</p>
+        </div>
+      ) : candidates.length === 0 ? (
+        <div className="text-center py-8">
+          <UserCheck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg">No candidates registered yet.</p>
+          <p className="text-gray-400">Candidates will appear here once registered by the electoral committee.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {candidates.map((c) => (
+            <div
+              key={c._id || c.id}
+              className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-4 flex-1">
+                  <img
+                    src={c.photo || c.profilePic || "/default-profile.png"}
+                    alt={c.fullName || c.name}
+                    className="w-16 h-16 rounded-full object-cover border"
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg text-gray-800">{c.fullName || c.name}</h3>
+                    <p className="text-blue-600 font-medium">{c.partyName || c.party}</p>
+                  </div>
+                </div>
+                {/* No edit/delete buttons for admin */}
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Position:</span> {c.position}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Party:</span> {c.partyName || c.party}
+                </p>
+                {c.politicalSign && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm text-gray-600">Symbol:</span>
+                    <img
+                      src={c.politicalSign}
+                      alt="Political Symbol"
+                      className="w-8 h-8 object-cover rounded"
+                    />
+                  </div>
+                )}
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Age:</span> {c.age} years
+                </p>
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Gender:</span> {c.gender ? c.gender.charAt(0).toUpperCase() + c.gender.slice(1) : 'N/A'}
+                </p>
+                <p className="text-sm text-gray-600 line-clamp-2">
+                  <span className="font-medium">Manifesto:</span> {c.manifesto || c.bio || 'No manifesto provided'}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+  </div>
+);
 
   const renderActiveSection = () => {
     switch (activeSection) {

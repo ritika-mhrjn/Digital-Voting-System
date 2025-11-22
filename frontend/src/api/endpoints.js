@@ -11,7 +11,7 @@ export const registerUser = async (userData) => {
   }
 };
 
-export const loginCandidate= async(credentials)=>{
+export const loginCandidate = async (credentials) => {
   try {
     const response = await api.post('/auth/loginCandidate', credentials);
     return response.data;
@@ -46,7 +46,6 @@ export const sendContactMessage = async (data) => {
 export const getPosts = async () => {
   try {
     const response = await api.get('/posts');
-    // Return the actual data array, not the entire response
     return response.data.data || [];
   } catch (error) {
     console.error("Failed to fetch posts:", error.response?.data || error.message);
@@ -85,9 +84,12 @@ export const deletePost = async (postId) => {
 };
 
 // Reactions & comments
-export const addReaction = async (postId, userId) => {
+export const addReaction = async (postId, reactionData) => {
   try {
-    const response = await api.post(`/posts/${postId}/reactions`, {userId:userId});
+    const response = await api.post(`/posts/${postId}/reactions`, {
+      userId: reactionData.user_id,
+      type: reactionData.type  
+    });
     return response.data;
   } catch (error) {
     console.error('Failed to add reaction:', error.response?.data || error.message);
@@ -97,7 +99,11 @@ export const addReaction = async (postId, userId) => {
 
 export const addComment = async (postId, commentData) => {
   try {
-    const response = await api.post(`/posts/${postId}/comments`, commentData);
+    const payload = {
+      userId: commentData.user_id || commentData.userId,
+      text: commentData.text
+    };
+    const response = await api.post(`/posts/${postId}/comments`, payload);
     return response.data;
   } catch (error) {
     console.error('Failed to add comment:', error.response?.data || error.message);
@@ -105,6 +111,27 @@ export const addComment = async (postId, commentData) => {
   }
 };
 
+export const editComment = async (commentId, commentData) => {
+  try {
+    const response = await api.put(`/posts/comments/${commentId}`, commentData);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to edit comment:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const deleteComment = async (commentId, userId) => {
+  try {
+    const response = await api.delete(`/posts/comments/${commentId}`, {
+      data: { userId }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Failed to delete comment:', error.response?.data || error.message);
+    throw error;
+  }
+};
 
 // USER PROFILE
 export const updateUserProfile = async (userId, updates) => {
@@ -132,7 +159,7 @@ export const uploadProfileImage = async (userId, imageFile) => {
     // const formData = new FormData();
     // formData.append('profilePic', imageFile);
 
-    const response = await api.post(`/users/profilePicture/${userId}`, {image: imageFile});
+    const response = await api.post(`/users/profilePicture/${userId}`, { image: imageFile });
     return response.data;
   } catch (error) {
     console.error("Failed to upload profile image:", error.response?.data || error.message);
@@ -360,6 +387,16 @@ export const getVotes = async () => {
     return response.data;
   } catch (error) {
     console.error("Failed to fetch votes:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const castVote = async (voteData) => {
+  try {
+    const response = await api.post('/votes/cast', voteData);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to cast vote:", error.response?.data || error.message);
     throw error;
   }
 };
