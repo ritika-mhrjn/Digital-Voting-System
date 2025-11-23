@@ -219,3 +219,67 @@ exports.addComment = async (req, res) => {
     return res.status(500).json({ error: "Failed to add comment" });
   }
 };
+exports.editComment = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const { userId, text } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ success: false, message: "Comment text is required" });
+    }
+
+    const comment = await Comment.findById(commentId);
+
+    if (!comment) {
+      return res.status(404).json({ success: false, message: "Comment not found" });
+    }
+
+    // Check owner
+    if (comment.user.toString() !== userId) {
+      return res.status(403).json({ success: false, message: "You cannot edit this comment" });
+    }
+
+    comment.text = text;
+    comment.updatedAt = new Date();
+    await comment.save();
+
+    const updated = await Comment.findById(commentId)
+      .populate("user", "fullName profilePicture");
+
+    return res.json({
+      success: true,
+      message: "Comment updated",
+      data: updated
+    });
+  } catch (err) {
+    console.error("editComment error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+exports.deleteComment = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const { userId } = req.body;
+
+    const comment = await Comment.findById(commentId);
+
+    if (!comment) {
+      return res.status(404).json({ success: false, message: "Comment not found" });
+    }
+
+    // Ownership check
+    if (comment.user.toString() !== userId) {
+      return res.status(403).json({ success: false, message: "You cannot delete this comment" });
+    }
+
+    await comment.deleteOne();
+
+    return res.json({
+      success: true,
+      message: "Comment deleted"
+    });
+  } catch (err) {
+    console.error("deleteComment error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

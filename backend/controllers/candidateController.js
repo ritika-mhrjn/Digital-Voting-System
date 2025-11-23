@@ -1,6 +1,7 @@
 const Candidate = require('../models/Candidate.js');
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
+const paginate = require('../utils/paginate.js');
 
 // Add new candidate
 const addCandidate = async (req, res) => {
@@ -118,10 +119,28 @@ const addCandidateElectoral = async (req, res) => {
 // Get all candidates
 const getAllCandidates = async (req, res) => {
   try {
-    const candidates = await Candidate.find().sort({ createdAt: -1 });
-    res.status(200).json(candidates);
+    const page = parseInt(req.query.page) || 1;   // default page = 1
+    const limit = parseInt(req.query.limit) || 10; // default limit = 10
+    const skip = (page - 1) * limit;
+
+    const totalCandidates = await Candidate.countDocuments(); // total count
+
+    const candidates = await Candidate.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      totalCandidates,
+      totalPages: Math.ceil(totalCandidates / limit),
+      currentPage: page,
+      results: candidates
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching candidates.' });
+    console.error("Error fetching candidates:", error);
+    res.status(500).json({ success: false, message: "Error fetching candidates." });
   }
 };
 

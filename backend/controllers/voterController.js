@@ -3,21 +3,41 @@ const Voter = require("../models/Voter.js");
 const getAllVoters = async (req, res) => {
   try {
     const { q, registered } = req.query;
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     const filter = {};
 
+    // Search filter
     if (q) {
       filter.$or = [
-        { voterId: new RegExp(q, 'i') },
-        { fullName: new RegExp(q, 'i') }
+        { voterId: new RegExp(q, "i") },
+        { fullName: new RegExp(q, "i") }
       ];
     }
 
+    // Registered filter
     if (registered === "true") filter.hasRegistered = true;
     if (registered === "false") filter.hasRegistered = false;
 
-    const voters = await Voter.find(filter).sort({ createdAt: -1 });
+    // Total count for pagination
+    const totalVoters = await Voter.countDocuments(filter);
 
-    return res.json({ success: true, data: voters });
+    // Actual paginated results
+    const voters = await Voter.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return res.json({
+      success: true,
+      totalVoters,
+      totalPages: Math.ceil(totalVoters / limit),
+      currentPage: page,
+      results: voters
+    });
   } catch (err) {
     console.error("Get voters error:", err);
     return res.status(500).json({ success: false, message: "Server Error" });
