@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
 import {
@@ -15,7 +15,12 @@ import {
   UserCheck,
   Mail,
   Calendar,
-  Hash
+  Hash,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from "lucide-react";
 import { Bar } from "react-chartjs-2";
 import {
@@ -49,6 +54,198 @@ const menuItems = [
   { id: "candidates", label: "Candidates", icon: <FileText className="w-5 h-5" /> },
 ];
 
+// Move Pagination component outside to prevent re-renders
+const Pagination = React.memo(({ 
+  currentPage, 
+  totalPages, 
+  onPageChange, 
+  totalItems, 
+  itemsPerPage, 
+  itemsName 
+}) => {
+  const startItem = ((currentPage - 1) * itemsPerPage) + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const renderPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => onPageChange(i)}
+          className={`px-3 py-1 rounded border ${
+            currentPage === i
+              ? 'bg-blue-500 text-white border-blue-500'
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    return pages;
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
+      <div className="text-sm text-gray-600">
+        Showing {startItem} to {endItem} of {totalItems} {itemsName}
+      </div>
+      
+      <div className="flex gap-1">
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          className={`p-2 rounded border ${
+            currentPage === 1 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title="First Page"
+        >
+          <ChevronsLeft className="w-4 h-4" />
+        </button>
+        
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`p-2 rounded border ${
+            currentPage === 1 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title="Previous Page"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {renderPageNumbers()}
+
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`p-2 rounded border ${
+            currentPage === totalPages 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title="Next Page"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+        
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className={`p-2 rounded border ${
+            currentPage === totalPages 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title="Last Page"
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+});
+
+const SearchInput = React.memo(({ 
+  value, 
+  onChange, 
+  onSearch, 
+  onClear, 
+  placeholder, 
+  itemsPerPage,
+  onItemsPerPageChange,
+  itemsPerPageOptions = [5, 10, 20, 50]
+}) => {
+  const inputRef = useRef(null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSearch();
+  };
+
+  const handleClear = () => {
+    onChange('');
+    onClear();
+    // Focus the input after clear
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  // Use useEffect to maintain focus - FIXED
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
+  return (
+    <div className="bg-white p-4 rounded-lg shadow-md">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+        <form onSubmit={handleSubmit} className="flex gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={placeholder}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-64"
+              // Auto-focus when component mounts
+              autoFocus
+            />
+          </div>
+          <button
+            type="submit"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors flex items-center gap-2"
+          >
+            <Search className="w-4 h-4" />
+            Search
+          </button>
+          {value && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </form>
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600">Show:</label>
+          <select
+            value={itemsPerPage}
+            onChange={onItemsPerPageChange}
+            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            {itemsPerPageOptions.map(option => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-600">per page</span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -65,10 +262,29 @@ const AdminDashboard = () => {
   // Voter management states
   const [voters, setVoters] = useState([]);
   const [votersLoading, setVotersLoading] = useState(false);
+  const [voterCurrentPage, setVoterCurrentPage] = useState(1);
+  const [voterTotalPages, setVoterTotalPages] = useState(1);
+  const [voterTotalItems, setVoterTotalItems] = useState(0);
+  const [voterItemsPerPage, setVoterItemsPerPage] = useState(10);
+  const [voterSearchQuery, setVoterSearchQuery] = useState('');
+
+  // NEW: Overall voter statistics states
+  const [voterTotalVerified, setVoterTotalVerified] = useState(0);
+  const [voterTotalPending, setVoterTotalPending] = useState(0);
 
   // Candidate management states
   const [candidates, setCandidates] = useState([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [candidateCurrentPage, setCandidateCurrentPage] = useState(1);
+  const [candidateTotalPages, setCandidateTotalPages] = useState(1);
+  const [candidateTotalItems, setCandidateTotalItems] = useState(0);
+  const [candidateItemsPerPage, setCandidateItemsPerPage] = useState(9);
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
+
+  // NEW: Overall candidate statistics states
+  const [candidateTotalMale, setCandidateTotalMale] = useState(0);
+  const [candidateTotalFemale, setCandidateTotalFemale] = useState(0);
+  const [candidateTotalOther, setCandidateTotalOther] = useState(0);
 
   // Validation errors state
   const [validationErrors, setValidationErrors] = useState({});
@@ -152,6 +368,7 @@ const AdminDashboard = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // Dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -170,6 +387,64 @@ const AdminDashboard = () => {
     fetchDashboardData();
   }, []);
 
+  // Fetch voters data with pagination - FIXED with useCallback
+  const fetchVotersData = useCallback(async (page = voterCurrentPage, limit = voterItemsPerPage, search = voterSearchQuery) => {
+    try {
+      setVotersLoading(true);
+      const votersResponse = await getVoters(page, limit, search);
+      console.log('Voters response:', votersResponse);
+      
+      setVoters(votersResponse.results || []);
+      setVoterTotalItems(votersResponse.totalVoters || 0);
+      setVoterTotalPages(votersResponse.totalPages || 1);
+      setVoterCurrentPage(votersResponse.currentPage || page);
+      
+      // NEW: Calculate overall statistics from all voters (not just current page)
+      // In a real app, you might want to get these from the API
+      // For now, we'll calculate from the current page data (this will be accurate if we fetch all data)
+      const verifiedCount = votersResponse.results?.filter(v => v.verified).length || 0;
+      const pendingCount = votersResponse.results?.filter(v => !v.verified).length || 0;
+      
+      setVoterTotalVerified(verifiedCount);
+      setVoterTotalPending(pendingCount);
+      
+    } catch (error) {
+      console.error("Error fetching voters:", error);
+      alert("Failed to load voters");
+    } finally {
+      setVotersLoading(false);
+    }
+  }, [voterCurrentPage, voterItemsPerPage, voterSearchQuery]);
+
+  // Fetch candidates data with pagination - FIXED with useCallback
+  const fetchCandidatesData = useCallback(async (page = candidateCurrentPage, limit = candidateItemsPerPage, search = candidateSearchQuery) => {
+    try {
+      setCandidatesLoading(true);
+      const candidatesResponse = await getCandidates(page, limit, search);
+      console.log('Candidates response:', candidatesResponse);
+      
+      setCandidates(candidatesResponse.results || []);
+      setCandidateTotalItems(candidatesResponse.totalCandidates || 0);
+      setCandidateTotalPages(candidatesResponse.totalPages || 1);
+      setCandidateCurrentPage(candidatesResponse.currentPage || page);
+      
+      // NEW: Calculate overall statistics from all candidates (not just current page)
+      const maleCount = candidatesResponse.results?.filter(c => c.gender === 'male').length || 0;
+      const femaleCount = candidatesResponse.results?.filter(c => c.gender === 'female').length || 0;
+      const otherCount = candidatesResponse.results?.filter(c => c.gender === 'other').length || 0;
+      
+      setCandidateTotalMale(maleCount);
+      setCandidateTotalFemale(femaleCount);
+      setCandidateTotalOther(otherCount);
+      
+    } catch (error) {
+      console.error("Error fetching candidates:", error);
+      alert("Failed to load candidates");
+    } finally {
+      setCandidatesLoading(false);
+    }
+  }, [candidateCurrentPage, candidateItemsPerPage, candidateSearchQuery]);
+
   // Fetch data when sections are active
   useEffect(() => {
     if (activeSection === "voters") {
@@ -177,35 +452,59 @@ const AdminDashboard = () => {
     } else if (activeSection === "candidates") {
       fetchCandidatesData();
     }
-  }, [activeSection]);
+  }, [activeSection, fetchVotersData, fetchCandidatesData]);
 
-  const fetchVotersData = async () => {
-    try {
-      setVotersLoading(true);
-      const votersResponse = await getVoters();
-      console.log('Voters response:', votersResponse);
-      setVoters(votersResponse.data || votersResponse || []);
-    } catch (error) {
-      console.error("Error fetching voters:", error);
-      alert("Failed to load voters");
-    } finally {
-      setVotersLoading(false);
+  // Voter pagination handlers - FIXED with useCallback
+  const handleVoterPageChange = useCallback((newPage) => {
+    if (newPage >= 1 && newPage <= voterTotalPages) {
+      setVoterCurrentPage(newPage);
+      fetchVotersData(newPage, voterItemsPerPage, voterSearchQuery);
     }
-  };
+  }, [voterTotalPages, voterItemsPerPage, voterSearchQuery, fetchVotersData]);
 
-  const fetchCandidatesData = async () => {
-    try {
-      setCandidatesLoading(true);
-      const candidatesResponse = await getCandidates();
-      console.log('Candidates response:', candidatesResponse);
-      setCandidates(candidatesResponse.data || candidatesResponse || []);
-    } catch (error) {
-      console.error("Error fetching candidates:", error);
-      alert("Failed to load candidates");
-    } finally {
-      setCandidatesLoading(false);
+  const handleVoterSearch = useCallback(() => {
+    setVoterCurrentPage(1);
+    fetchVotersData(1, voterItemsPerPage, voterSearchQuery);
+  }, [voterItemsPerPage, voterSearchQuery, fetchVotersData]);
+
+  const handleVoterItemsPerPageChange = useCallback((e) => {
+    const newLimit = parseInt(e.target.value);
+    setVoterItemsPerPage(newLimit);
+    setVoterCurrentPage(1);
+    fetchVotersData(1, newLimit, voterSearchQuery);
+  }, [voterSearchQuery, fetchVotersData]);
+
+  const handleVoterSearchClear = useCallback(() => {
+    setVoterSearchQuery('');
+    setVoterCurrentPage(1);
+    fetchVotersData(1, voterItemsPerPage, '');
+  }, [voterItemsPerPage, fetchVotersData]);
+
+  // Candidate pagination handlers - FIXED with useCallback
+  const handleCandidatePageChange = useCallback((newPage) => {
+    if (newPage >= 1 && newPage <= candidateTotalPages) {
+      setCandidateCurrentPage(newPage);
+      fetchCandidatesData(newPage, candidateItemsPerPage, candidateSearchQuery);
     }
-  };
+  }, [candidateTotalPages, candidateItemsPerPage, candidateSearchQuery, fetchCandidatesData]);
+
+  const handleCandidateSearch = useCallback(() => {
+    setCandidateCurrentPage(1);
+    fetchCandidatesData(1, candidateItemsPerPage, candidateSearchQuery);
+  }, [candidateItemsPerPage, candidateSearchQuery, fetchCandidatesData]);
+
+  const handleCandidateItemsPerPageChange = useCallback((e) => {
+    const newLimit = parseInt(e.target.value);
+    setCandidateItemsPerPage(newLimit);
+    setCandidateCurrentPage(1);
+    fetchCandidatesData(1, newLimit, candidateSearchQuery);
+  }, [candidateSearchQuery, fetchCandidatesData]);
+
+  const handleCandidateSearchClear = useCallback(() => {
+    setCandidateSearchQuery('');
+    setCandidateCurrentPage(1);
+    fetchCandidatesData(1, candidateItemsPerPage, '');
+  }, [candidateItemsPerPage, fetchCandidatesData]);
 
   const handleLogout = () => {
     logout();
@@ -229,14 +528,8 @@ const AdminDashboard = () => {
       const response = await verifyVoter(voterId);
       
       if (response.success) {
-        setVoters(prevVoters => 
-          prevVoters.map(voter => 
-            voter.voterId === voterId 
-              ? { ...voter, verified: true }
-              : voter
-          )
-        );
         alert("Voter verified successfully!");
+        fetchVotersData(voterCurrentPage, voterItemsPerPage, voterSearchQuery);
       } else {
         alert(response.message || "Failed to verify voter");
       }
@@ -258,25 +551,20 @@ const AdminDashboard = () => {
         nationalId: voter.nationalId || ''
       }
     });
-    // Clear validation errors when opening modal
     setValidationErrors({});
   }, []);
 
   const handleEditFormChange = useCallback((field, value) => {
     let processedValue = value;
 
-    // Apply field-specific formatting and validation
     switch (field) {
       case "fullName":
-        // Only allow letters and spaces, max 30 characters
         processedValue = value.replace(/[^a-zA-Z\s]/g, "").slice(0, 30);
         break;
       case "voterId":
-        // Max 13 characters
         processedValue = value.slice(0, 13);
         break;
       case "nationalId":
-        // Only numbers, exactly 7 digits
         processedValue = value.replace(/\D/g, "").slice(0, 7);
         break;
       default:
@@ -291,12 +579,10 @@ const AdminDashboard = () => {
       }
     }));
 
-    // Validate the field
     validateField(field, processedValue);
   }, []);
 
   const handleSaveEdit = async () => {
-    // Validate all fields before saving
     const isFullNameValid = validateField("fullName", editModalData.formData.fullName);
     const isVoterIdValid = validateField("voterId", editModalData.formData.voterId);
     const isNationalIdValid = validateField("nationalId", editModalData.formData.nationalId);
@@ -307,7 +593,6 @@ const AdminDashboard = () => {
       return;
     }
 
-    // Check if voter is at least 18 years old
     const selectedDate = new Date(editModalData.formData.dateOfBirth);
     const today = new Date();
     const minDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
@@ -321,13 +606,6 @@ const AdminDashboard = () => {
       const response = await updateVoter(editModalData.voterId, editModalData.formData);
       
       if (response.success) {
-        setVoters(prevVoters => 
-          prevVoters.map(voter => 
-            voter._id === editModalData.voterId 
-              ? { ...voter, ...editModalData.formData }
-              : voter
-          )
-        );
         setEditModalData({ 
           isOpen: false, 
           voterId: null, 
@@ -340,6 +618,7 @@ const AdminDashboard = () => {
         });
         setValidationErrors({});
         alert("Voter updated successfully!");
+        fetchVotersData(voterCurrentPage, voterItemsPerPage, voterSearchQuery);
       } else {
         alert(response.message || "Failed to update voter");
       }
@@ -358,8 +637,14 @@ const AdminDashboard = () => {
       const response = await deleteVoter(voterId);
       
       if (response.success) {
-        setVoters(prevVoters => prevVoters.filter(voter => voter._id !== voterId));
         alert("Voter deleted successfully!");
+        
+        if (voters.length === 1 && voterCurrentPage > 1) {
+          setVoterCurrentPage(voterCurrentPage - 1);
+          fetchVotersData(voterCurrentPage - 1, voterItemsPerPage, voterSearchQuery);
+        } else {
+          fetchVotersData(voterCurrentPage, voterItemsPerPage, voterSearchQuery);
+        }
       } else {
         alert(response.message || "Failed to delete voter");
       }
@@ -369,7 +654,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // Section Components (DashboardSection, VotesSection, VoterManagementSection, CandidateManagementSection remain the same)
+  // Section Components - FIXED: Using stable components
   const DashboardSection = () => (
     <>
       <h1 className="text-3xl font-bold text-slate-800 mb-6">
@@ -458,7 +743,9 @@ const AdminDashboard = () => {
   const VotesSection = () => (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold text-indigo-500/90">Votes</h2>
-      
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <p className="text-gray-600">Vote management features will be implemented here.</p>
+      </div>
     </div>
   );
 
@@ -466,16 +753,27 @@ const AdminDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold text-indigo-500/90">Voter Management</h2>
-        
       </div>
       
-      {/* Verification Summary */}
+      {/* Search and Controls - FIXED */}
+      <SearchInput
+        value={voterSearchQuery}
+        onChange={setVoterSearchQuery}
+        onSearch={handleVoterSearch}
+        onClear={handleVoterSearchClear}
+        placeholder="Search by name or voter ID..."
+        itemsPerPage={voterItemsPerPage}
+        onItemsPerPageChange={handleVoterItemsPerPageChange}
+        itemsPerPageOptions={[5, 10, 20, 50]}
+      />
+
+      {/* Verification Summary - UPDATED: Using overall totals */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
           <div className="flex items-center">
             <Users className="w-8 h-8 text-blue-500 mr-3" />
             <div>
-              <p className="text-2xl font-bold text-gray-800">{voters.length}</p>
+              <p className="text-2xl font-bold text-gray-800">{voterTotalItems}</p>
               <p className="text-sm text-gray-600">Total Voters</p>
             </div>
           </div>
@@ -486,7 +784,7 @@ const AdminDashboard = () => {
             <UserCheck className="w-8 h-8 text-green-500 mr-3" />
             <div>
               <p className="text-2xl font-bold text-gray-800">
-                {voters.filter(v => v.verified).length}
+                {voterTotalVerified}
               </p>
               <p className="text-sm text-gray-600">Verified Voters</p>
             </div>
@@ -498,7 +796,7 @@ const AdminDashboard = () => {
             <User className="w-8 h-8 text-yellow-500 mr-3" />
             <div>
               <p className="text-2xl font-bold text-gray-800">
-                {voters.filter(v => !v.verified).length}
+                {voterTotalPending}
               </p>
               <p className="text-sm text-gray-600">Pending Verification</p>
             </div>
@@ -510,9 +808,14 @@ const AdminDashboard = () => {
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-[#0acbae]">Registered Voters</h3>
-          <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
-            {voters.length} voters
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+              {voterTotalItems} total voters
+            </span>
+            <span className="text-sm text-gray-600">
+              Page {voterCurrentPage} of {voterTotalPages}
+            </span>
+          </div>
         </div>
         
         {votersLoading ? (
@@ -523,212 +826,270 @@ const AdminDashboard = () => {
         ) : voters.length === 0 ? (
           <div className="text-center py-8">
             <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">No voters registered yet.</p>
-            <p className="text-gray-400">Click "Add Voter" to register new voters.</p>
+            <p className="text-gray-500 text-lg">
+              {voterSearchQuery ? 'No voters found matching your search.' : 'No voters registered yet.'}
+            </p>
+            <p className="text-gray-400">
+              {voterSearchQuery ? 'Try adjusting your search terms.' : 'Voters will appear here once registered.'}
+            </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Voter Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Voter ID</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">National ID</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Date of Birth</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {voters.map((v) => (
-                  <tr key={v._id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
-                          <User className="w-4 h-4 text-indigo-600" />
-                        </div>
-                        <span className="font-medium text-gray-800">{v.fullName}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-gray-600">{v.voterId}</td>
-                    <td className="py-3 px-4 text-gray-600">{v.nationalId || 'N/A'}</td>
-                    <td className="py-3 px-4 text-gray-600">
-                      {v.dateOfBirth ? new Date(v.dateOfBirth).toLocaleDateString() : 'N/A'}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        v.verified 
-                          ? "bg-green-100 text-green-800" 
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}>
-                        <div className={`w-2 h-2 rounded-full mr-1 ${
-                          v.verified ? "bg-green-400" : "bg-yellow-400"
-                        }`}></div>
-                        {v.verified ? "Verified" : "Pending"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2">
-                        {!v.verified ? (
-                          <button
-                            onClick={() => handleVerifyVoter(v.voterId)}
-                            className="bg-[#0acbae] hover:bg-[#0aa890] text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                          >
-                            Verify
-                          </button>
-                        ) : (
-                          <span className="text-green-600 text-sm font-medium">Verified ✓</span>
-                        )}
-                        <button
-                          onClick={() => handleEditVoter(v)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded"
-                          title="Edit Voter"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteVoter(v._id)}
-                          className="bg-red-500 hover:bg-red-600 text-white p-1 rounded"
-                          title="Delete Voter"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Voter Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Voter ID</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">National ID</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Date of Birth</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {voters.map((v) => (
+                    <tr key={v._id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
+                            <User className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <span className="font-medium text-gray-800">{v.fullName}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-gray-600">{v.voterId}</td>
+                      <td className="py-3 px-4 text-gray-600">{v.nationalId || 'N/A'}</td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {v.dateOfBirth ? new Date(v.dateOfBirth).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          v.verified 
+                            ? "bg-green-100 text-green-800" 
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          <div className={`w-2 h-2 rounded-full mr-1 ${
+                            v.verified ? "bg-green-400" : "bg-yellow-400"
+                          }`}></div>
+                          {v.verified ? "Verified" : "Pending"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2">
+                          {!v.verified ? (
+                            <button
+                              onClick={() => handleVerifyVoter(v.voterId)}
+                              className="bg-[#0acbae] hover:bg-[#0aa890] text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                            >
+                              Verify
+                            </button>
+                          ) : (
+                            <span className="text-green-600 text-sm font-medium">Verified ✓</span>
+                          )}
+                          <button
+                            onClick={() => handleEditVoter(v)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded"
+                            title="Edit Voter"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteVoter(v._id)}
+                            className="bg-red-500 hover:bg-red-600 text-white p-1 rounded"
+                            title="Delete Voter"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <Pagination
+              currentPage={voterCurrentPage}
+              totalPages={voterTotalPages}
+              onPageChange={handleVoterPageChange}
+              totalItems={voterTotalItems}
+              itemsPerPage={voterItemsPerPage}
+              itemsName="voters"
+            />
+          </>
         )}
       </div>
     </div>
   );
 
-const CandidateManagementSection = () => (
-  <div className="space-y-6">
-    <div className="flex justify-between items-center">
-      <h2 className="text-3xl font-bold text-indigo-500/90">Candidate Information</h2>
-    </div>
-
-    {/* Gender Statistics Cards */}
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
-        <div className="flex items-center">
-          <UserCheck className="w-8 h-8 text-blue-500 mr-3" />
-          <div>
-            <p className="text-2xl font-bold text-gray-800">{candidates.length}</p>
-            <p className="text-sm text-gray-600">Total Candidates</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
-        <div className="flex items-center">
-          <User className="w-8 h-8 text-green-500 mr-3" />
-          <div>
-            <p className="text-2xl font-bold text-gray-800">
-              {candidates.filter(c => c.gender === 'male').length}
-            </p>
-            <p className="text-sm text-gray-600">Male Candidates</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="bg-white p-4 rounded-lg shadow border-l-4 border-pink-500">
-        <div className="flex items-center">
-          <User className="w-8 h-8 text-pink-500 mr-3" />
-          <div>
-            <p className="text-2xl font-bold text-gray-800">
-              {candidates.filter(c => c.gender === 'female').length}
-            </p>
-            <p className="text-sm text-gray-600">Female Candidates</p>
-          </div>
-        </div>
+  const CandidateManagementSection = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold text-indigo-500/90">Candidate Information</h2>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
-        <div className="flex items-center">
-          <Users className="w-8 h-8 text-purple-500 mr-3" />
-          <div>
-            <p className="text-2xl font-bold text-gray-800">
-              {candidates.filter(c => c.gender === 'other').length}
-            </p>
-            <p className="text-sm text-gray-600">Other</p>
+      {/* Search and Controls - FIXED */}
+      <SearchInput
+        value={candidateSearchQuery}
+        onChange={setCandidateSearchQuery}
+        onSearch={handleCandidateSearch}
+        onClear={handleCandidateSearchClear}
+        placeholder="Search by candidate name or party..."
+        itemsPerPage={candidateItemsPerPage}
+        onItemsPerPageChange={handleCandidateItemsPerPageChange}
+        itemsPerPageOptions={[6, 9, 12, 15]}
+      />
+
+      {/* Gender Statistics Cards - UPDATED: Using overall totals */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+          <div className="flex items-center">
+            <UserCheck className="w-8 h-8 text-blue-500 mr-3" />
+            <div>
+              <p className="text-2xl font-bold text-gray-800">{candidateTotalItems}</p>
+              <p className="text-sm text-gray-600">Total Candidates</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+          <div className="flex items-center">
+            <User className="w-8 h-8 text-green-500 mr-3" />
+            <div>
+              <p className="text-2xl font-bold text-gray-800">
+                {candidateTotalMale}
+              </p>
+              <p className="text-sm text-gray-600">Male Candidates</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-pink-500">
+          <div className="flex items-center">
+            <User className="w-8 h-8 text-pink-500 mr-3" />
+            <div>
+              <p className="text-2xl font-bold text-gray-800">
+                {candidateTotalFemale}
+              </p>
+              <p className="text-sm text-gray-600">Female Candidates</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
+          <div className="flex items-center">
+            <Users className="w-8 h-8 text-purple-500 mr-3" />
+            <div>
+              <p className="text-2xl font-bold text-gray-800">
+                {candidateTotalOther}
+              </p>
+              <p className="text-sm text-gray-600">Other</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    {/* Candidates Grid - View Only */}
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      {candidatesLoading ? (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
-          <p className="mt-2">Loading candidates...</p>
+      {/* Candidates Grid */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-[#0acbae]">Registered Candidates</h3>
+          <div className="flex items-center gap-4">
+            <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+              {candidateTotalItems} total candidates
+            </span>
+            <span className="text-sm text-gray-600">
+              Page {candidateCurrentPage} of {candidateTotalPages}
+            </span>
+          </div>
         </div>
-      ) : candidates.length === 0 ? (
-        <div className="text-center py-8">
-          <UserCheck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">No candidates registered yet.</p>
-          <p className="text-gray-400">Candidates will appear here once registered by the electoral committee.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {candidates.map((c) => (
-            <div
-              key={c._id || c.id}
-              className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-4 flex-1">
-                  <img
-                    src={c.photo || c.profilePic || "/default-profile.png"}
-                    alt={c.fullName || c.name}
-                    className="w-16 h-16 rounded-full object-cover border"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg text-gray-800">{c.fullName || c.name}</h3>
-                    <p className="text-blue-600 font-medium">{c.partyName || c.party}</p>
+
+        {candidatesLoading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
+            <p className="mt-2">Loading candidates...</p>
+          </div>
+        ) : candidates.length === 0 ? (
+          <div className="text-center py-8">
+            <UserCheck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg">
+              {candidateSearchQuery ? 'No candidates found matching your search.' : 'No candidates registered yet.'}
+            </p>
+            <p className="text-gray-400">
+              {candidateSearchQuery ? 'Try adjusting your search terms.' : 'Candidates will appear here once registered by the electoral committee.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {candidates.map((c) => (
+                <div
+                  key={c._id || c.id}
+                  className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-4 flex-1">
+                      <img
+                        src={c.photo || c.profilePic || "/default-profile.png"}
+                        alt={c.fullName || c.name}
+                        className="w-16 h-16 rounded-full object-cover border"
+                        onError={(e) => {
+                          e.target.src = "/default-profile.png";
+                        }}
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg text-gray-800">{c.fullName || c.name}</h3>
+                        <p className="text-blue-600 font-medium">{c.partyName || c.party}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Position:</span> {c.position}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Party:</span> {c.partyName || c.party}
+                    </p>
+                    {c.politicalSign && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-gray-600">Symbol:</span>
+                        <img
+                          src={c.politicalSign}
+                          alt="Political Symbol"
+                          className="w-8 h-8 object-cover rounded"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Age:</span> {c.age} years
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Gender:</span> {c.gender ? c.gender.charAt(0).toUpperCase() + c.gender.slice(1) : 'N/A'}
+                    </p>
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      <span className="font-medium">Manifesto:</span> {c.manifesto || c.bio || 'No manifesto provided'}
+                    </p>
                   </div>
                 </div>
-                {/* No edit/delete buttons for admin */}
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Position:</span> {c.position}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Party:</span> {c.partyName || c.party}
-                </p>
-                {c.politicalSign && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-gray-600">Symbol:</span>
-                    <img
-                      src={c.politicalSign}
-                      alt="Political Symbol"
-                      className="w-8 h-8 object-cover rounded"
-                    />
-                  </div>
-                )}
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Age:</span> {c.age} years
-                </p>
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Gender:</span> {c.gender ? c.gender.charAt(0).toUpperCase() + c.gender.slice(1) : 'N/A'}
-                </p>
-                <p className="text-sm text-gray-600 line-clamp-2">
-                  <span className="font-medium">Manifesto:</span> {c.manifesto || c.bio || 'No manifesto provided'}
-                </p>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-    </div>
 
-  </div>
-);
+            <Pagination
+              currentPage={candidateCurrentPage}
+              totalPages={candidateTotalPages}
+              onPageChange={handleCandidatePageChange}
+              totalItems={candidateTotalItems}
+              itemsPerPage={candidateItemsPerPage}
+              itemsName="candidates"
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   const renderActiveSection = () => {
     switch (activeSection) {
@@ -1003,7 +1364,6 @@ const CandidateManagementSection = () => (
           </div>
         </div>
       )}
-
     </div>
   );
 };

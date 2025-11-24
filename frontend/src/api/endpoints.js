@@ -168,9 +168,13 @@ export const uploadProfileImage = async (userId, imageFile) => {
 };
 
 // Candidates
-export const getCandidates = async () => {
+export const getCandidates = async (page = 1, limit = 10, search = '') => {
   try {
-    const response = await api.get('/candidates');
+    let url = `/candidates?page=${page}&limit=${limit}`;
+    if (search) {
+      url += `&q=${encodeURIComponent(search)}`;
+    }
+    const response = await api.get(url);
     return response.data;
   } catch (error) {
     console.error("Failed to fetch candidates:", error.response?.data || error.message);
@@ -218,9 +222,13 @@ export const deleteCandidate = async (candidateId) => {
 };
 
 // Voters
-export const getVoters = async () => {
+export const getVoters = async (page = 1, limit = 10, search = '') => {
   try {
-    const response = await api.get('/voters');
+    let url = `/voters?page=${page}&limit=${limit}`;
+    if (search) {
+      url += `&q=${encodeURIComponent(search)}`;
+    }
+    const response = await api.get(url);
     return response.data;
   } catch (error) {
     console.error("Failed to fetch voters:", error.response?.data || error.message);

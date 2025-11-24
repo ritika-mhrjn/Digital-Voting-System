@@ -958,37 +958,60 @@ const VoteNowPage = () => {
   const [showCandidateDetail, setShowCandidateDetail] = useState(false);
   const [selectedCandidateDetail, setSelectedCandidateDetail] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
 
+  // Check if user has already voted
+  useEffect(() => {
+    const checkVoteStatus = () => {
+      const userVoteStatus = localStorage.getItem(`hasVoted_${user?.id}`);
+      if (userVoteStatus === 'true') {
+        setHasVoted(true);
+        setVoted(true);
+      }
+    };
+    
+    checkVoteStatus();
+  }, [user]);
+
+  // Fetch candidates and elections
   useEffect(() => {
     const fetchData = async () => {
       try {
         setCandidatesLoading(true);
+        setFetchError(null);
+        
+        console.log("Fetching candidates and elections...");
+        
         const [candidatesData, electionsData] = await Promise.all([
           getCandidates(),
           getElections()
         ]);
-        setCandidates(candidatesData || []);
-        setElections(electionsData || []);
+        
+        console.log("Candidates response:", candidatesData);
+        console.log("Elections response:", electionsData);
 
-        checkUserVoteStatus();
+        // Handle different response structures
+        const candidatesArray = candidatesData.results || candidatesData.data || candidatesData || [];
+        const electionsArray = electionsData.results || electionsData.data || electionsData || [];
+
+        setCandidates(Array.isArray(candidatesArray) ? candidatesArray : []);
+        setElections(Array.isArray(electionsArray) ? electionsArray : []);
+
+        console.log("Processed candidates:", candidatesArray);
+        console.log("Processed elections:", electionsArray);
+
       } catch (err) {
         console.error("Failed to fetch data:", err);
+        setFetchError("Failed to load candidates. Please try again later.");
         setCandidates([]);
         setElections([]);
       } finally {
         setCandidatesLoading(false);
       }
     };
+    
     fetchData();
   }, []);
-
-  const checkUserVoteStatus = () => {
-    const userVoteStatus = localStorage.getItem(`hasVoted_${user?.id}`);
-    if (userVoteStatus === 'true') {
-      setHasVoted(true);
-      setVoted(true);
-    }
-  };
 
   const handleViewDetails = (candidate) => {
     setSelectedCandidateDetail(candidate);
@@ -998,6 +1021,11 @@ const VoteNowPage = () => {
   const handleVote = (candidate) => {
     if (hasVoted) {
       alert("You have already voted. You can only vote once.");
+      return;
+    }
+
+    if (elections.length === 0) {
+      alert("No active elections found. Please try again later.");
       return;
     }
 
@@ -1012,14 +1040,24 @@ const VoteNowPage = () => {
       setVerifLoading(true);
       setShowVerifier(false);
 
-      if (!pendingCandidate) throw new Error("No candidate selected for vote");
+      if (!pendingCandidate) {
+        throw new Error("No candidate selected for vote");
+      }
+
+      if (!elections[0]?._id) {
+        throw new Error("No active election found");
+      }
 
       console.log("Voting for candidate:", pendingCandidate._id);
+      console.log("In election:", elections[0]._id);
 
       const voteResponse = await castVote({
-        electionId: elections[0]?._id,
-        candidateId: pendingCandidate._id
+        electionId: elections[0]._id,
+        candidateId: pendingCandidate._id,
+        voterId: user.id
       });
+
+      console.log("Vote response:", voteResponse);
 
       if (voteResponse.success) {
         setSelectedCandidate(pendingCandidate);
@@ -1028,12 +1066,14 @@ const VoteNowPage = () => {
         setShowCandidateDetail(false);
         localStorage.setItem(`hasVoted_${user?.id}`, 'true');
         setPendingCandidate(null);
+        
+        alert("Vote cast successfully! Thank you for participating.");
       } else {
-        throw new Error("Failed to cast vote");
+        throw new Error(voteResponse.message || "Failed to cast vote");
       }
     } catch (err) {
       console.error("Voting failed:", err);
-      setVerifError("Vote failed. Please try again.");
+      setVerifError(err.message || "Vote failed. Please try again.");
     } finally {
       setVerifLoading(false);
     }
@@ -1044,17 +1084,18 @@ const VoteNowPage = () => {
     setSelectedCandidateDetail(null);
   };
 
+  // Show success message after voting
   if (voted) {
     return (
       <div className="max-w-4xl mx-auto mt-28 px-4">
-        <div className="text-center bg-white p-10 rounded-xl shadow-lg">
+        <div className="text-center bg-white p-10 rounded-xl shadow-lg border border-green-200">
           <CheckCircle size={64} className="text-green-600 mx-auto mb-4 animate-bounce" />
           <h2 className="text-3xl font-semibold text-gray-800 mb-4">Vote Submitted Successfully!</h2>
           <p className="text-gray-600 mb-6 text-lg">
             You voted for <strong className="text-blue-700 text-xl">{selectedCandidate?.fullName}</strong> from {selectedCandidate?.partyName || selectedCandidate?.party}.
           </p>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <p className="text-sm text-green-700">
               Thank you for participating in the democratic process. Your vote has been recorded.
             </p>
           </div>
@@ -1090,7 +1131,7 @@ const VoteNowPage = () => {
             <div className="flex flex-col items-center md:items-start space-y-6">
               <div className="relative">
                 <img
-                  src={selectedCandidateDetail.photo}
+                  src={selectedCandidateDetail.photo || "/default-profile.png"}
                   alt={selectedCandidateDetail.fullName}
                   className="w-48 h-48 rounded-full object-cover border-4 border-blue-200 shadow-lg"
                   onError={(e) => {
@@ -1117,9 +1158,10 @@ const VoteNowPage = () => {
                 </h1>
                 <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
                   <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                    {selectedCandidateDetail.partyName}
+                    {selectedCandidateDetail.partyName || selectedCandidateDetail.party}
                   </span>
                 </div>
+                <p className="text-gray-600">{selectedCandidateDetail.position}</p>
               </div>
 
               {/* Vote Button */}
@@ -1147,26 +1189,26 @@ const VoteNowPage = () => {
                       <label className="text-sm font-medium text-gray-500">Email</label>
                       <div className="flex items-center gap-2 mt-1">
                         <Mail className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-800">{selectedCandidateDetail.email}</span>
+                        <span className="text-gray-800">{selectedCandidateDetail.email || "N/A"}</span>
                       </div>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Age</label>
                       <div className="flex items-center gap-2 mt-1">
                         <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-800">{selectedCandidateDetail.age} years</span>
+                        <span className="text-gray-800">{selectedCandidateDetail.age || "N/A"} years</span>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div>
                       <label className="text-sm font-medium text-gray-500">Gender</label>
-                      <p className="text-gray-800 mt-1 capitalize">{selectedCandidateDetail.gender}</p>
+                      <p className="text-gray-800 mt-1 capitalize">{selectedCandidateDetail.gender || "N/A"}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Party</label>
                       <p className="text-gray-800 mt-1 font-medium">
-                        {selectedCandidateDetail.partyName || selectedCandidateDetail.party}
+                        {selectedCandidateDetail.partyName || selectedCandidateDetail.party || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -1201,7 +1243,7 @@ const VoteNowPage = () => {
                     />
                     <div>
                       <p className="font-semibold text-gray-800 text-lg">
-                        {selectedCandidateDetail.partyName}
+                        {selectedCandidateDetail.partyName || selectedCandidateDetail.party}
                       </p>
                     </div>
                   </div>
@@ -1289,6 +1331,18 @@ const VoteNowPage = () => {
         </div>
       </div>
 
+      {fetchError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-center">
+          <p className="text-red-700 font-medium">{fetchError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {hasVoted && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-center">
           <p className="text-yellow-800 font-medium">
@@ -1302,79 +1356,83 @@ const VoteNowPage = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-800 mx-auto mb-4"></div>
           Loading candidates...
         </div>
+      ) : candidates.length === 0 ? (
+        <div className="col-span-3 text-center text-gray-500 py-8 bg-white rounded-lg border border-gray-200">
+          <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-lg mb-2">No candidates available</p>
+          <p className="text-gray-600 mb-4">Candidates will appear here once registered by the electoral committee.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {candidates.length === 0 ? (
-            <div className="col-span-3 text-center text-gray-500 py-8 bg-white rounded-lg border border-gray-200">
-              <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-lg mb-2">No candidates available</p>
-              <p className="text-gray-600">Candidates will appear here once registered by the electoral committee.</p>
-            </div>
-          ) : (
-            candidates.map((candidate) => (
-              <div
-                key={candidate._id}
-                className="bg-white border rounded-xl shadow-md p-6 flex flex-col items-center text-center hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
-                onClick={() => handleViewDetails(candidate)}
-              >
-                {/* Candidate Photo */}
-                <div className="relative mb-4">
-                  <img
-                    src={candidate.photo}
-                    alt={candidate.fullName}
-                    className="w-32 h-32 rounded-full object-cover border-4 border-blue-200 shadow-md"
-                    onError={(e) => {
-                      e.target.src = "/default-profile.png";
-                    }}
-                  />
-                  {/* Party Symbol Badge */}
-                  {candidate.politicalSign && (
-                    <div className="absolute -bottom-2 -right-2 bg-white p-1 rounded-full shadow-lg border">
-                      <img
-                        src={candidate.politicalSign}
-                        alt="Party Symbol"
-                        className="w-10 h-10 object-cover rounded"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Candidate Info */}
-                <h3 className="font-bold text-gray-800 text-xl mb-2">{candidate.fullName}</h3>
-                <div className="mb-3">
-                  <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                    {candidate.partyName}
-                  </span>
-                </div>
-                <div className="mb-3">
-                  <span className="text-gray-600 bg-gray-100 px-2 py-1 rounded text-sm">
-                    {candidate.position}
-                  </span>
-                </div>
-
-                {/* Manifesto Preview */}
-                {candidate.manifesto && (
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {candidate.manifesto}
-                  </p>
-                )}
-
-                {/* Cast Vote Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleVote(candidate);
+          {candidates.map((candidate) => (
+            <div
+              key={candidate._id || candidate.id}
+              className="bg-white border rounded-xl shadow-md p-6 flex flex-col items-center text-center hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
+              onClick={() => handleViewDetails(candidate)}
+            >
+              {/* Candidate Photo */}
+              <div className="relative mb-4">
+                <img
+                  src={candidate.photo || "/default-profile.png"}
+                  alt={candidate.fullName}
+                  className="w-32 h-32 rounded-full object-cover border-4 border-blue-200 shadow-md"
+                  onError={(e) => {
+                    e.target.src = "/default-profile.png";
                   }}
-                  className="w-full px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors font-medium shadow-md"
-                >
-                  Cast Vote
-                </button>
+                />
+                {/* Party Symbol Badge */}
+                {candidate.politicalSign && (
+                  <div className="absolute -bottom-2 -right-2 bg-white p-1 rounded-full shadow-lg border">
+                    <img
+                      src={candidate.politicalSign}
+                      alt="Party Symbol"
+                      className="w-10 h-10 object-cover rounded"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
-            ))
-          )}
+
+              {/* Candidate Info */}
+              <h3 className="font-bold text-gray-800 text-xl mb-2">{candidate.fullName || candidate.name}</h3>
+              <div className="mb-3">
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
+                  {candidate.partyName || candidate.party || "Independent"}
+                </span>
+              </div>
+              <div className="mb-3">
+                <span className="text-gray-600 bg-gray-100 px-2 py-1 rounded text-sm">
+                  {candidate.position || "Candidate"}
+                </span>
+              </div>
+
+              {/* Manifesto Preview */}
+              {candidate.manifesto && (
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                  {candidate.manifesto}
+                </p>
+              )}
+
+              {/* Cast Vote Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleVote(candidate);
+                }}
+                className="w-full px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors font-medium shadow-md"
+              >
+                Cast Vote
+              </button>
+            </div>
+          ))}
         </div>
       )}
 

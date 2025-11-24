@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   ArrowLeft,
   LogOut,
@@ -13,11 +13,15 @@ import {
   EyeOff,
   Edit2,
   Trash2,
-  X
+  X,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useAuth } from "../contexts/AuthContext";
-
 import {
   getCandidates,
   getElections,
@@ -30,6 +34,196 @@ import {
   deleteCandidate
 } from "../api/endpoints";
 
+// Pagination Component
+const Pagination = React.memo(({ 
+  currentPage, 
+  totalPages, 
+  onPageChange, 
+  totalItems, 
+  itemsPerPage, 
+  itemsName 
+}) => {
+  const startItem = ((currentPage - 1) * itemsPerPage) + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const renderPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => onPageChange(i)}
+          className={`px-3 py-1 rounded border ${
+            currentPage === i
+              ? 'bg-blue-500 text-white border-blue-500'
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    return pages;
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
+      <div className="text-sm text-gray-600">
+        Showing {startItem} to {endItem} of {totalItems} {itemsName}
+      </div>
+      
+      <div className="flex gap-1">
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          className={`p-2 rounded border ${
+            currentPage === 1 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title="First Page"
+        >
+          <ChevronsLeft className="w-4 h-4" />
+        </button>
+        
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`p-2 rounded border ${
+            currentPage === 1 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title="Previous Page"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {renderPageNumbers()}
+
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`p-2 rounded border ${
+            currentPage === totalPages 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title="Next Page"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+        
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className={`p-2 rounded border ${
+            currentPage === totalPages 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title="Last Page"
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+});
+
+// SearchInput Component
+const SearchInput = React.memo(({ 
+  value, 
+  onChange, 
+  onSearch, 
+  onClear, 
+  placeholder, 
+  itemsPerPage,
+  onItemsPerPageChange,
+  itemsPerPageOptions = [5, 10, 20, 50]
+}) => {
+  const inputRef = useRef(null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSearch();
+  };
+
+  const handleClear = () => {
+    onChange('');
+    onClear();
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
+  return (
+    <div className="bg-white p-4 rounded-lg shadow-md">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+        <form onSubmit={handleSubmit} className="flex gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={placeholder}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-64"
+              autoFocus
+            />
+          </div>
+          <button
+            type="submit"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors flex items-center gap-2"
+          >
+            <Search className="w-4 h-4" />
+            Search
+          </button>
+          {value && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </form>
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600">Show:</label>
+          <select
+            value={itemsPerPage}
+            onChange={onItemsPerPageChange}
+            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            {itemsPerPageOptions.map(option => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-600">per page</span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const ElectoralCommitteeDashboard = () => {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
@@ -37,8 +231,25 @@ const ElectoralCommitteeDashboard = () => {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [elections, setElections] = useState([]);
   const [newElection, setNewElection] = useState({ title: "", startDate: "", endDate: "" });
+  
+  // Voter states with pagination
   const [voters, setVoters] = useState([]);
+  const [voterCurrentPage, setVoterCurrentPage] = useState(1);
+  const [voterTotalPages, setVoterTotalPages] = useState(1);
+  const [voterTotalItems, setVoterTotalItems] = useState(0);
+  const [voterItemsPerPage, setVoterItemsPerPage] = useState(10);
+  const [voterSearchQuery, setVoterSearchQuery] = useState('');
+  const [votersLoading, setVotersLoading] = useState(false);
+
+  // Candidate states with pagination
   const [candidates, setCandidates] = useState([]);
+  const [candidateCurrentPage, setCandidateCurrentPage] = useState(1);
+  const [candidateTotalPages, setCandidateTotalPages] = useState(1);
+  const [candidateTotalItems, setCandidateTotalItems] = useState(0);
+  const [candidateItemsPerPage, setCandidateItemsPerPage] = useState(9);
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editedDates, setEditedDates] = useState({ startDate: "", endDate: "" });
@@ -96,7 +307,7 @@ const ElectoralCommitteeDashboard = () => {
     console.log('User role:', user?.role);
   }, [user]);
 
-  // fetch elections
+  // Fetch elections
   const fetchElectionsData = async () => {
     try {
       const electionsResponse = await getElections();
@@ -108,41 +319,113 @@ const ElectoralCommitteeDashboard = () => {
     }
   };
 
-  // fetch voters
-  const fetchVotersData = async () => {
+  // Fetch voters with pagination
+  const fetchVotersData = useCallback(async (page = voterCurrentPage, limit = voterItemsPerPage, search = voterSearchQuery) => {
     try {
-      const votersResponse = await getVoters();
+      setVotersLoading(true);
+      const votersResponse = await getVoters(page, limit, search);
       console.log('Voters response:', votersResponse);
-      setVoters(votersResponse.data || votersResponse || []);
+      
+      setVoters(votersResponse.results || votersResponse.data || []);
+      setVoterTotalItems(votersResponse.totalVoters || votersResponse.total || 0);
+      setVoterTotalPages(votersResponse.totalPages || 1);
+      setVoterCurrentPage(votersResponse.currentPage || page);
+      
     } catch (error) {
       console.error("Error fetching voters:", error);
+    } finally {
+      setVotersLoading(false);
     }
-  };
+  }, [voterCurrentPage, voterItemsPerPage, voterSearchQuery]);
 
-  // Fetch candidates
-  const fetchCandidatesData = async () => {
+  // Fetch candidates with pagination
+  const fetchCandidatesData = useCallback(async (page = candidateCurrentPage, limit = candidateItemsPerPage, search = candidateSearchQuery) => {
     try {
-      const candidatesData = await getCandidates();
-      const candidatesArray = candidatesData.data || candidatesData || [];
+      setCandidatesLoading(true);
+      const candidatesResponse = await getCandidates(page, limit, search);
+      console.log('Candidates response:', candidatesResponse);
+      
+      const candidatesArray = candidatesResponse.results || candidatesResponse.data || candidatesResponse || [];
       setCandidates(Array.isArray(candidatesArray) ? candidatesArray : []);
+      setCandidateTotalItems(candidatesResponse.totalCandidates || candidatesResponse.total || 0);
+      setCandidateTotalPages(candidatesResponse.totalPages || 1);
+      setCandidateCurrentPage(candidatesResponse.currentPage || page);
+      
     } catch (error) {
       console.error("Error fetching candidates:", error);
+    } finally {
+      setCandidatesLoading(false);
     }
-  };
+  }, [candidateCurrentPage, candidateItemsPerPage, candidateSearchQuery]);
+
+  // Voter pagination handlers
+  const handleVoterPageChange = useCallback((newPage) => {
+    if (newPage >= 1 && newPage <= voterTotalPages) {
+      setVoterCurrentPage(newPage);
+      fetchVotersData(newPage, voterItemsPerPage, voterSearchQuery);
+    }
+  }, [voterTotalPages, voterItemsPerPage, voterSearchQuery, fetchVotersData]);
+
+  const handleVoterSearch = useCallback(() => {
+    setVoterCurrentPage(1);
+    fetchVotersData(1, voterItemsPerPage, voterSearchQuery);
+  }, [voterItemsPerPage, voterSearchQuery, fetchVotersData]);
+
+  const handleVoterItemsPerPageChange = useCallback((e) => {
+    const newLimit = parseInt(e.target.value);
+    setVoterItemsPerPage(newLimit);
+    setVoterCurrentPage(1);
+    fetchVotersData(1, newLimit, voterSearchQuery);
+  }, [voterSearchQuery, fetchVotersData]);
+
+  const handleVoterSearchClear = useCallback(() => {
+    setVoterSearchQuery('');
+    setVoterCurrentPage(1);
+    fetchVotersData(1, voterItemsPerPage, '');
+  }, [voterItemsPerPage, fetchVotersData]);
+
+  // Candidate pagination handlers
+  const handleCandidatePageChange = useCallback((newPage) => {
+    if (newPage >= 1 && newPage <= candidateTotalPages) {
+      setCandidateCurrentPage(newPage);
+      fetchCandidatesData(newPage, candidateItemsPerPage, candidateSearchQuery);
+    }
+  }, [candidateTotalPages, candidateItemsPerPage, candidateSearchQuery, fetchCandidatesData]);
+
+  const handleCandidateSearch = useCallback(() => {
+    setCandidateCurrentPage(1);
+    fetchCandidatesData(1, candidateItemsPerPage, candidateSearchQuery);
+  }, [candidateItemsPerPage, candidateSearchQuery, fetchCandidatesData]);
+
+  const handleCandidateItemsPerPageChange = useCallback((e) => {
+    const newLimit = parseInt(e.target.value);
+    setCandidateItemsPerPage(newLimit);
+    setCandidateCurrentPage(1);
+    fetchCandidatesData(1, newLimit, candidateSearchQuery);
+  }, [candidateSearchQuery, fetchCandidatesData]);
+
+  const handleCandidateSearchClear = useCallback(() => {
+    setCandidateSearchQuery('');
+    setCandidateCurrentPage(1);
+    fetchCandidatesData(1, candidateItemsPerPage, '');
+  }, [candidateItemsPerPage, fetchCandidatesData]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         await fetchElectionsData();
-        await fetchCandidatesData();
-        await fetchVotersData();
+        if (activeSection === "voters") {
+          await fetchVotersData();
+        } else if (activeSection === "candidates") {
+          await fetchCandidatesData();
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
 
     fetchData();
-  }, []);
+  }, [activeSection, fetchVotersData, fetchCandidatesData]);
 
   // Function to calculate end date
   const calculateEndDate = (startDate) => {
@@ -332,10 +615,8 @@ const ElectoralCommitteeDashboard = () => {
         setFormErrors({});
         setShowCandidateForm(false);
 
-        // Add new candidate to state immediately
-        const newCandidate = response.data || response.candidate || candidatePayload;
-        setCandidates(prev => [...prev, { ...newCandidate, _id: response.id || Date.now().toString() }]);
-
+        // Refresh candidates list
+        await fetchCandidatesData();
         alert("Candidate registered successfully!");
       } else {
         alert(response.message || "Failed to register candidate");
@@ -638,6 +919,911 @@ const ElectoralCommitteeDashboard = () => {
     setSelectedCandidate(candidate);
   };
 
+  // Section Components
+  const DashboardSection = () => (
+    <div className="space-y-8">
+      {/* Create Election Form */}
+      <div className="bg-white border border-gray-300 p-6 mt-11 rounded-lg shadow-md max-w-md mx-auto space-y-5" style={{ minHeight: "340px" }}>
+        <h3 className="text-2xl font-bold text-blue-800 mb-4 text-center">Create New Election</h3>
+        <div className="space-y-4">
+          <div className="flex items-center">
+            <label className="block text-md font-medium text-gray-700 w-1/3">
+              Location:
+            </label>
+            <input
+              type="text"
+              name="title"
+              placeholder="Enter Election Location"
+              value={newElection.title}
+              onChange={handleChange}
+              className="w-2/3 border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-600"
+            />
+          </div>
+
+          <div className="flex items-center">
+            <label className="text-md font-medium text-gray-700 w-1/3">
+              Start Date:
+            </label>
+            <input
+              type="date"
+              name="startDate"
+              value={newElection.startDate}
+              onChange={handleChange}
+              min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+              className="w-2/3 border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-600"
+            />
+          </div>
+
+          <div className="flex items-center">
+            <label className="text-md font-medium text-gray-700 w-1/3">
+              End Date:
+            </label>
+            <input
+              type="date"
+              name="endDate"
+              value={newElection.endDate}
+              onChange={handleChange}
+              className="w-2/3 border border-gray-400 p-2 rounded focus:outline-none focus:ring focus:ring-blue-600 bg-gray-100"
+              disabled
+            />
+          </div>
+          <button
+            onClick={handleCreateElection}
+            className="w-full bg-blue-700 text-white hover:bg-blue-800 py-2 rounded"
+          >
+            Create Election
+          </button>
+        </div>
+      </div>
+
+      {/* Manage Created Elections */}
+      <div className="bg-white border border-gray-300 p-6 rounded-lg shadow-md max-w-6xl mx-auto space-y-4">
+        <h3 className="text-2xl font-bold text-blue-800 text-center mb-2">Created Elections</h3>
+        {elections.length === 0 ? (
+          <p className="text-center text-gray-600">No elections created yet.</p>
+        ) : (
+          <ul className="divide-y divide-gray-200">
+            {elections.map((e) => (
+              <li
+                key={e._id || e.id}
+                className="flex flex-col md:flex-row justify-between items-start md:items-center py-3 px-4 hover:bg-gray-50 rounded transition"
+              >
+                <div>
+                  <p className="font-semibold text-blue-900">{e.title}</p>
+                  <p className="text-sm text-gray-600">
+                    Start: {new Date(e.startDate).toLocaleDateString()}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    End: {new Date(e.endDate).toLocaleDateString()}
+                  </p>
+                </div>
+
+                {editingId === e._id ? (
+                  <div className="flex flex-col md:flex-row gap-2 mt-3 md:mt-0">
+                    <input
+                      type="date"
+                      value={editedDates.startDate}
+                      onChange={(ev) => handleEditedDatesChange('startDate', ev.target.value)}
+                      min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+                      className="border p-1 rounded text-sm"
+                    />
+                    <input
+                      type="date"
+                      value={calculateEndDate(editedDates.startDate)}
+                      className="border p-1 rounded text-sm bg-gray-100"
+                      disabled
+                    />
+                    <button
+                      onClick={() => handleUpdateElection(e._id)}
+                      className="bg-green-700 hover:bg-green-800 text-white px-3 py-1 rounded "
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded "
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mt-3 md:mt-0">
+                    <button
+                      onClick={() => {
+                        setEditingId(e._id);
+                        setEditedDates({
+                          startDate: e.startDate.split('T')[0],
+                          endDate: e.endDate.split('T')[0],
+                        });
+                      }}
+                      className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1 rounded"
+                    >
+                      Manage
+                    </button>
+                    <button
+                      onClick={() => handleDeleteElection(e._id)}
+                      className="bg-[#ff5154]  hover:bg-[#fc161a] text-white px-3 py-1 rounded"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+
+  const VotersSection = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold text-indigo-500/90">Voter List</h2>
+      </div>
+
+      {/* Search and Controls */}
+      <SearchInput
+        value={voterSearchQuery}
+        onChange={setVoterSearchQuery}
+        onSearch={handleVoterSearch}
+        onClear={handleVoterSearchClear}
+        placeholder="Search by name or voter ID..."
+        itemsPerPage={voterItemsPerPage}
+        onItemsPerPageChange={handleVoterItemsPerPageChange}
+        itemsPerPageOptions={[5, 10, 20, 50]}
+      />
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+          <div className="flex items-center">
+            <Users className="w-8 h-8 text-blue-500 mr-3" />
+            <div>
+              <p className="text-2xl font-bold text-gray-800">{voterTotalItems}</p>
+              <p className="text-sm text-gray-600">Total Voters</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+          <div className="flex items-center">
+            <UserCheck className="w-8 h-8 text-green-500 mr-3" />
+            <div>
+              <p className="text-2xl font-bold text-gray-800">
+                {voters.filter(v => v.verified).length}
+              </p>
+              <p className="text-sm text-gray-600">Verified Voters</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500">
+          <div className="flex items-center">
+            <User className="w-8 h-8 text-yellow-500 mr-3" />
+            <div>
+              <p className="text-2xl font-bold text-gray-800">
+                {voters.filter(v => !v.verified).length}
+              </p>
+              <p className="text-sm text-gray-600">Pending Verification</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Voters Table */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-[#0acbae]">Registered Voters</h3>
+          <div className="flex items-center gap-4">
+            <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+              {voterTotalItems} total voters
+            </span>
+            <span className="text-sm text-gray-600">
+              Page {voterCurrentPage} of {voterTotalPages}
+            </span>
+          </div>
+        </div>
+
+        {votersLoading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
+            <p className="mt-2">Loading voters...</p>
+          </div>
+        ) : voters.length === 0 ? (
+          <div className="text-center py-8">
+            <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg">
+              {voterSearchQuery ? 'No voters found matching your search.' : 'No voters registered yet.'}
+            </p>
+            <p className="text-gray-400">
+              {voterSearchQuery ? 'Try adjusting your search terms.' : 'Voters will appear here once registered.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Voter Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Voter ID</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">National ID</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Date of Birth</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {voters.map((v) => (
+                    <tr key={v._id || v.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
+                            <User className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <span className="font-medium text-gray-800">{v.fullName}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-gray-600">{v.voterId}</td>
+                      <td className="py-3 px-4 text-gray-600">{v.nationalId || 'N/A'}</td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {v.dateOfBirth ? new Date(v.dateOfBirth).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          v.verified 
+                            ? "bg-green-100 text-green-800" 
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          <div className={`w-2 h-2 rounded-full mr-1 ${
+                            v.verified ? "bg-green-400" : "bg-yellow-400"
+                          }`}></div>
+                          {v.verified ? "Verified" : "Pending"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <Pagination
+              currentPage={voterCurrentPage}
+              totalPages={voterTotalPages}
+              onPageChange={handleVoterPageChange}
+              totalItems={voterTotalItems}
+              itemsPerPage={voterItemsPerPage}
+              itemsName="voters"
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  const CandidatesSection = () => {
+    if (showCandidateForm) {
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-3xl font-bold text-indigo-500/90">Register New Candidate</h2>
+            <button
+              onClick={() => setShowCandidateForm(false)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Candidates
+            </button>
+          </div>
+
+          {/* Candidate Form */}
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <form onSubmit={handleCandidateSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Full Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="fullName"
+                    required
+                    value={candidateFormData.fullName}
+                    onChange={handleCandidateInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                    placeholder="Enter full name"
+                    maxLength={30}
+                  />
+                  {formErrors.fullName && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.fullName}</p>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    value={candidateFormData.email}
+                    onChange={handleCandidateInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                    placeholder="Enter email address"
+                    maxLength={40}
+                  />
+                  {formErrors.email && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      required
+                      value={candidateFormData.password}
+                      onChange={handleCandidateInputChange}
+                      className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                      placeholder="Enter password"
+                      maxLength={30}
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <Eye className="w-5 h-5" />
+                      ) : (
+                        <EyeOff className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                  {formErrors.password && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.password}</p>
+                  )}
+                </div>
+
+                {/* Party Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Party Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="partyName"
+                    required
+                    value={candidateFormData.partyName}
+                    onChange={handleCandidateInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                    placeholder="Enter party name"
+                    maxLength={15}
+                  />
+                  {formErrors.partyName && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.partyName}</p>
+                  )}
+                </div>
+
+                {/* Age */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Age <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="age"
+                    required
+                    min="21"
+                    max="100"
+                    value={candidateFormData.age}
+                    onChange={handleCandidateInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                    placeholder="Minimum 21 years"
+                    maxLength={2}
+                  />
+                  {formErrors.age && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.age}</p>
+                  )}
+                </div>
+
+                {/* Gender */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Gender <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="gender"
+                    required
+                    value={candidateFormData.gender}
+                    onChange={handleCandidateInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                  {formErrors.gender && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.gender}</p>
+                  )}
+                </div>   
+
+                {/* Political Sign  */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Political Symbol <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    name="politicalSign"
+                    onChange={handleFile}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                    placeholder="Enter political symbol URL"
+                  />
+                  {formErrors.politicalSign && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.politicalSign}</p>
+                  )}
+                </div>
+
+                {/* Photo */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Photo <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    name="photo"
+                    onChange={handleFile}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                  />
+                  {formErrors.photo && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.photo}</p>
+                  )}
+                </div>
+
+                {/* Position */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Position <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="position"
+                    required
+                    value={candidateFormData.position}
+                    onChange={handleCandidateInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                  >
+                    <option value="">Select Position</option>
+                    {positions.map((position) => (
+                      <option key={position} value={position}>
+                        {position}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.position && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.position}</p>
+                  )}
+                </div>
+
+                {/* Manifesto */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Manifesto <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    name="manifesto"
+                    required
+                    value={candidateFormData.manifesto}
+                    onChange={handleCandidateInputChange}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+                    placeholder="Enter candidate's manifesto and promises"
+                    maxLength={150}
+                  />
+                  {formErrors.manifesto && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.manifesto}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCandidateForm(false)}
+                  className="px-6 py-2 text-white border border-gray-300 bg-gray-500 hover:bg-gray-600 rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={candidateLoading}
+                  className="px-6 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800 transition-colors disabled:opacity-50"
+                >
+                  {candidateLoading ? "Registering..." : "Register Candidate"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (selectedCandidate) {
+      return (
+        <div className="bg-white p-6 rounded-lg shadow-md max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={handleBack}
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back to Candidates</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* Candidate Photo and Basic Info */}
+            <div className="flex flex-col items-center md:items-start space-y-4">
+              <img
+                src={selectedCandidate.photo || selectedCandidate.profilePic || "/default-profile.png"}
+                alt={selectedCandidate.fullName || selectedCandidate.name}
+                className="w-32 h-32 rounded-full object-cover border-4 border-blue-200"
+              />
+              <div className="text-center md:text-left">
+                <h3 className="text-2xl font-semibold text-gray-800">{selectedCandidate.fullName || selectedCandidate.name}</h3>
+                <p className="text-gray-600">{selectedCandidate.email}</p>
+                <p className="text-blue-600 font-medium text-lg mt-1">{selectedCandidate.partyName || selectedCandidate.party}</p>
+              </div>
+            </div>
+
+            {/* Candidate Details */}
+            <div className="flex-1 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Position</p>
+                  <p className="text-lg font-semibold text-gray-800">{selectedCandidate.position}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Age</p>
+                  <p className="text-lg font-semibold text-gray-800">{selectedCandidate.age} years</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Gender</p>
+                  <p className="text-lg font-semibold text-gray-800 capitalize">{selectedCandidate.gender}</p>
+                </div>
+              </div>
+
+              {/* Political Symbol */}
+              {selectedCandidate.politicalSign && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium text-gray-500 mb-2">Political Symbol</p>
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={selectedCandidate.politicalSign}
+                      alt="Political Symbol"
+                      className="w-20 h-20 object-cover rounded-lg border"
+                    />
+                    <div>
+                      <p className="font-semibold text-gray-800">{selectedCandidate.partyName || selectedCandidate.party}</p>
+                      <p className="text-sm text-gray-600">Party Symbol</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Manifesto */}
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-gray-500 mb-2">Manifesto</p>
+                <p className="text-gray-700 leading-relaxed">{selectedCandidate.manifesto || selectedCandidate.bio}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-3xl font-bold text-indigo-500/90">Candidates</h2>
+          <button
+            onClick={() => setShowCandidateForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Add New Candidate
+          </button>
+        </div>
+
+        {/* Search and Controls */}
+        <SearchInput
+          value={candidateSearchQuery}
+          onChange={setCandidateSearchQuery}
+          onSearch={handleCandidateSearch}
+          onClear={handleCandidateSearchClear}
+          placeholder="Search by candidate name or party..."
+          itemsPerPage={candidateItemsPerPage}
+          onItemsPerPageChange={handleCandidateItemsPerPageChange}
+          itemsPerPageOptions={[6, 9, 12, 15]}
+        />
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+            <div className="flex items-center">
+              <UserCheck className="w-8 h-8 text-blue-500 mr-3" />
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{candidateTotalItems}</p>
+                <p className="text-sm text-gray-600">Total Candidates</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+            <div className="flex items-center">
+              <User className="w-8 h-8 text-green-500 mr-3" />
+              <div>
+                <p className="text-2xl font-bold text-gray-800">
+                  {candidates.filter(c => c.gender === 'male').length}
+                </p>
+                <p className="text-sm text-gray-600">Male Candidates</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow border-l-4 border-pink-500">
+            <div className="flex items-center">
+              <User className="w-8 h-8 text-pink-500 mr-3" />
+              <div>
+                <p className="text-2xl font-bold text-gray-800">
+                  {candidates.filter(c => c.gender === 'female').length}
+                </p>
+                <p className="text-sm text-gray-600">Female Candidates</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
+            <div className="flex items-center">
+              <Users className="w-8 h-8 text-purple-500 mr-3" />
+              <div>
+                <p className="text-2xl font-bold text-gray-800">
+                  {candidates.filter(c => c.gender === 'other').length}
+                </p>
+                <p className="text-sm text-gray-600">Other</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Candidates Grid */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-[#0acbae]">Registered Candidates</h3>
+            <div className="flex items-center gap-4">
+              <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+                {candidateTotalItems} total candidates
+              </span>
+              <span className="text-sm text-gray-600">
+                Page {candidateCurrentPage} of {candidateTotalPages}
+              </span>
+            </div>
+          </div>
+
+          {candidatesLoading ? (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
+              <p className="mt-2">Loading candidates...</p>
+            </div>
+          ) : candidates.length === 0 ? (
+            <div className="text-center py-8">
+              <UserCheck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">
+                {candidateSearchQuery ? 'No candidates found matching your search.' : 'No candidates registered yet.'}
+              </p>
+              <p className="text-gray-400">
+                {candidateSearchQuery ? 'Try adjusting your search terms.' : 'Candidates will appear here once registered.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {candidates.map((c) => (
+                  <div
+                    key={c._id || c.id}
+                    className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => handleCandidateClick(c)}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-4 flex-1">
+                        <img
+                          src={c.photo || c.profilePic || "/default-profile.png"}
+                          alt={c.fullName || c.name}
+                          className="w-16 h-16 rounded-full object-cover border"
+                        />
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg text-gray-800">{c.fullName || c.name}</h3>
+                          <p className="text-blue-600 font-medium">{c.partyName || c.party}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUpdatingCandidateId(c._id);
+                            handleEditCandidate(c);
+                          }}
+                          disabled={updatingCandidateId === c._id}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors disabled:opacity-50"
+                          title="Edit Candidate"
+                        >
+                          {updatingCandidateId === c._id ? (
+                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Edit2 className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCandidate(c._id);
+                          }}
+                          disabled={deletingCandidateId === c._id}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                          title="Delete Candidate"
+                        >
+                          {deletingCandidateId === c._id ? (
+                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Position:</span> {c.position}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Party:</span> {c.partyName || c.party}
+                      </p>
+                      {c.politicalSign && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-gray-600">Symbol:</span>
+                          <img
+                            src={c.politicalSign}
+                            alt="Political Symbol"
+                            className="w-8 h-8 object-cover rounded"
+                          />
+                        </div>
+                      )}
+                      <p className="text-sm text-gray-600 line-clamp-2">
+                        {c.manifesto || c.bio}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Pagination
+                currentPage={candidateCurrentPage}
+                totalPages={candidateTotalPages}
+                onPageChange={handleCandidatePageChange}
+                totalItems={candidateTotalItems}
+                itemsPerPage={candidateItemsPerPage}
+                itemsName="candidates"
+              />
+            </>
+          )}
+        </div>
+      </>
+    );
+  };
+
+  const ElectionsSection = () => (
+    <div>
+      <h2 className="text-2xl font-semibold mb-4">Elections</h2>
+      {elections.length === 0 ? (
+        <p>No elections yet.</p>
+      ) : (
+        <ul className="bg-white p-4 rounded shadow space-y-2">
+          {elections.map((e) => (
+            <li
+              key={e._id || e.id}
+              className="border p-3 rounded flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50"
+            >
+              <div>
+                <p className="font-semibold text-blue-900">{e.title}</p>
+                <p className="text-sm text-gray-600">
+                  Start: {new Date(e.startDate).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-gray-600">
+                  End: {new Date(e.endDate).toLocaleDateString()}
+                </p>
+              </div>
+
+              {editingId === e._id ? (
+                <div className="flex flex-col md:flex-row gap-2 mt-2 md:mt-0">
+                  <input
+                    type="date"
+                    value={editedDates.startDate}
+                    onChange={(ev) => handleEditedDatesChange('startDate', ev.target.value)}
+                    min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+                    className="border p-1 rounded text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={calculateEndDate(editedDates.startDate)}
+                    className="border p-1 rounded text-sm bg-gray-100"
+                    disabled
+                  />
+                  <button
+                    onClick={() => handleUpdateElection(e._id)}
+                    className="bg-green-700 hover:bg-green-800 text-white px-3 py-1 rounded"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="bg-gray-500 hover:bg-gray-600 py-1 px-2 rounded"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2 mt-2 md:mt-0">
+                  <button
+                    onClick={() => {
+                      setEditingId(e._id);
+                      setEditedDates({
+                        startDate: e.startDate.split('T')[0],
+                        endDate: e.endDate.split('T')[0],
+                      });
+                    }}
+                    className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1 rounded"
+                  >
+                    Manage
+                  </button>
+                  <button
+                    onClick={() => handleDeleteElection(e._id)}
+                    className="bg-[#ff5154]  hover:bg-[#fc161a] text-white px-3 py-1 rounded "
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  const renderActiveSection = () => {
+    switch (activeSection) {
+      case "dashboard":
+        return <DashboardSection />;
+      case "voters":
+        return <VotersSection />;
+      case "candidates":
+        return <CandidatesSection />;
+      case "elections":
+        return <ElectionsSection />;
+      default:
+        return <DashboardSection />;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-[#f0e7ed] shadow-sm flex justify-center items-center px-6 py-4 fixed top-0 left-0 right-0 z-10">
@@ -686,804 +1872,7 @@ const ElectoralCommitteeDashboard = () => {
         </aside>
 
         <main className="flex-1 p-8 overflow-auto ml-64">
-          {/* Dashboard Section */}
-          {activeSection === "dashboard" && (
-            <div className="space-y-8">
-              {/* Create Election Form */}
-              <div className="bg-white border border-gray-300 p-6 mt-11 rounded-lg shadow-md max-w-md mx-auto space-y-5" style={{ minHeight: "340px" }}>
-                <h3 className="text-2xl font-bold text-blue-800 mb-4 text-center">Create New Election</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <label className="block text-md font-medium text-gray-700 w-1/3">
-                      Location:
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      placeholder="Enter Election Location"
-                      value={newElection.title}
-                      onChange={handleChange}
-                      className="w-2/3 border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <div className="flex items-center">
-                    <label className="text-md font-medium text-gray-700 w-1/3">
-                      Start Date:
-                    </label>
-                    <input
-                      type="date"
-                      name="startDate"
-                      value={newElection.startDate}
-                      onChange={handleChange}
-                      min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
-                      className="w-2/3 border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <div className="flex items-center">
-                    <label className="text-md font-medium text-gray-700 w-1/3">
-                      End Date:
-                    </label>
-                    <input
-                      type="date"
-                      name="endDate"
-                      value={newElection.endDate}
-                      onChange={handleChange}
-                      className="w-2/3 border border-gray-400 p-2 rounded focus:outline-none focus:ring focus:ring-blue-600 bg-gray-100"
-                      disabled
-                    />
-                  </div>
-                  <button
-                    onClick={handleCreateElection}
-                    className="w-full bg-blue-700 text-white hover:bg-blue-800 py-2 rounded"
-                  >
-                    Create Election
-                  </button>
-                </div>
-              </div>
-
-              {/* Manage Created Elections */}
-              <div className="bg-white border border-gray-300 p-6 rounded-lg shadow-md max-w-6xl mx-auto space-y-4">
-                <h3 className="text-2xl font-bold text-blue-800 text-center mb-2">Created Elections</h3>
-                {elections.length === 0 ? (
-                  <p className="text-center text-gray-600">No elections created yet.</p>
-                ) : (
-                  <ul className="divide-y divide-gray-200">
-                    {elections.map((e) => (
-                      <li
-                        key={e._id || e.id}
-                        className="flex flex-col md:flex-row justify-between items-start md:items-center py-3 px-4 hover:bg-gray-50 rounded transition"
-                      >
-                        <div>
-                          <p className="font-semibold text-blue-900">{e.title}</p>
-                          <p className="text-sm text-gray-600">
-                            Start: {new Date(e.startDate).toLocaleDateString()}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            End: {new Date(e.endDate).toLocaleDateString()}
-                          </p>
-                        </div>
-
-                        {editingId === e._id ? (
-                          <div className="flex flex-col md:flex-row gap-2 mt-3 md:mt-0">
-                            <input
-                              type="date"
-                              value={editedDates.startDate}
-                              onChange={(ev) => handleEditedDatesChange('startDate', ev.target.value)}
-                              min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
-                              className="border p-1 rounded text-sm"
-                            />
-                            <input
-                              type="date"
-                              value={calculateEndDate(editedDates.startDate)}
-                              className="border p-1 rounded text-sm bg-gray-100"
-                              disabled
-                            />
-                            <button
-                              onClick={() => handleUpdateElection(e._id)}
-                              className="bg-green-700 hover:bg-green-800 text-white px-3 py-1 rounded "
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingId(null)}
-                              className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded "
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2 mt-3 md:mt-0">
-                            <button
-                              onClick={() => {
-                                setEditingId(e._id);
-                                setEditedDates({
-                                  startDate: e.startDate.split('T')[0],
-                                  endDate: e.endDate.split('T')[0],
-                                });
-                              }}
-                              className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1 rounded"
-                            >
-                              Manage
-                            </button>
-                            <button
-                              onClick={() => handleDeleteElection(e._id)}
-                              className="bg-[#ff5154]  hover:bg-[#fc161a] text-white px-3 py-1 rounded"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Voters Section */}
-          {activeSection === "voters" && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-indigo-500/90">Voter List</h2>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
-                  <div className="flex items-center">
-                    <Users className="w-8 h-8 text-blue-500 mr-3" />
-                    <div>
-                      <p className="text-2xl font-bold text-gray-800">{voters.length}</p>
-                      <p className="text-sm text-gray-600">Total Voters</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
-                  <div className="flex items-center">
-                    <UserCheck className="w-8 h-8 text-green-500 mr-3" />
-                    <div>
-                      <p className="text-2xl font-bold text-gray-800">
-                        {voters.filter(v => v.verified).length}
-                      </p>
-                      <p className="text-sm text-gray-600">Verified Voters</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500">
-                  <div className="flex items-center">
-                    <User className="w-8 h-8 text-yellow-500 mr-3" />
-                    <div>
-                      <p className="text-2xl font-bold text-gray-800">
-                        {voters.filter(v => !v.verified).length}
-                      </p>
-                      <p className="text-sm text-gray-600">Pending Verification</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-[#0acbae]">Registered Voters</h3>
-                  <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
-                    {voters.length} voters
-                  </span>
-                </div>
-
-                {voters.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg">No voters registered yet.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b-2 border-gray-200">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Voter Name</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Voter ID</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {voters.map((v) => (
-                          <tr key={v._id || v.id} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center">
-                                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
-                                  <User className="w-4 h-4 text-indigo-600" />
-                                </div>
-                                <span className="font-medium text-gray-800">{v.fullName}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-gray-600">{v.voterId}</td>
-                            <td className="py-3 px-4">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${v.verified
-                                ? "bg-green-100 text-green-800"
-                                : "bg-yellow-100 text-yellow-800"
-                                }`}>
-                                <div className={`w-2 h-2 rounded-full mr-1 ${v.verified ? "bg-green-400" : "bg-yellow-400"
-                                  }`}></div>
-                                {v.verified ? "Verified" : "Pending"}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Candidates Section */}
-{activeSection === "candidates" && (
-  <div>
-    {showCandidateForm ? (
-      // Candidate Registration Form
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-bold text-indigo-500/90">Register New Candidate</h2>
-          <button
-            onClick={() => setShowCandidateForm(false)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Candidates
-          </button>
-        </div>
-
-        {/* Candidate Form */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <form onSubmit={handleCandidateSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Full Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="fullName"
-                  required
-                  value={candidateFormData.fullName}
-                  onChange={handleCandidateInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                  placeholder="Enter full name"
-                  maxLength={30}
-                />
-                {formErrors.fullName && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.fullName}</p>
-                )}
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  value={candidateFormData.email}
-                  onChange={handleCandidateInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                  placeholder="Enter email address"
-                  maxLength={40}
-                />
-                {formErrors.email && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
-                )}
-              </div>
-
-              {/* Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    required
-                    value={candidateFormData.password}
-                    onChange={handleCandidateInputChange}
-                    className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                    placeholder="Enter password"
-                    maxLength={30}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600 hover:text-gray-800 transition-colors"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <Eye className="w-5 h-5" />
-                    ) : (
-                      <EyeOff className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-                {formErrors.password && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.password}</p>
-                )}
-              </div>
-
-              {/* Party Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Party Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="partyName"
-                  required
-                  value={candidateFormData.partyName}
-                  onChange={handleCandidateInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                  placeholder="Enter party name"
-                  maxLength={15}
-                />
-                {formErrors.partyName && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.partyName}</p>
-                )}
-              </div>
-
-              {/* Age */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Age <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="age"
-                  required
-                  min="21"
-                  max="100"
-                  value={candidateFormData.age}
-                  onChange={handleCandidateInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                  placeholder="Minimum 21 years"
-                  maxLength={2}
-                />
-                {formErrors.age && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.age}</p>
-                )}
-              </div>
-
-              {/* Gender */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Gender <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="gender"
-                  required
-                  value={candidateFormData.gender}
-                  onChange={handleCandidateInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-                {formErrors.gender && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.gender}</p>
-                )}
-              </div>   
-
-              {/* Political Sign  */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Political Symbol <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="file"
-                  name="politicalSign"
-                  onChange={handleFile}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                  placeholder="Enter political symbol URL"
-                />
-                {formErrors.politicalSign && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.politicalSign}</p>
-                )}
-              </div>
-
-              {/* Photo */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Photo <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="file"
-                  name="photo"
-                  onChange={handleFile}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                />
-                {formErrors.photo && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.photo}</p>
-                )}
-              </div>
-
-              {/* Position */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Position <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="position"
-                  required
-                  value={candidateFormData.position}
-                  onChange={handleCandidateInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                >
-                  <option value="">Select Position</option>
-                  {positions.map((position) => (
-                    <option key={position} value={position}>
-                      {position}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.position && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.position}</p>
-                )}
-              </div>
-
-              {/* Manifesto */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Manifesto <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  name="manifesto"
-                  required
-                  value={candidateFormData.manifesto}
-                  onChange={handleCandidateInputChange}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
-                  placeholder="Enter candidate's manifesto and promises"
-                  maxLength={150}
-                />
-                {formErrors.manifesto && (
-                  <p className="text-red-500 text-sm mt-1">{formErrors.manifesto}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Form Actions */}
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowCandidateForm(false)}
-                className="px-6 py-2 text-white border border-gray-300 bg-gray-500 hover:bg-gray-600 rounded-md transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={candidateLoading}
-                className="px-6 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800 transition-colors disabled:opacity-50"
-              >
-                {candidateLoading ? "Registering..." : "Register Candidate"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    ) : !selectedCandidate ? (
-      // Candidates List View
-      <>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold text-indigo-500/90">Candidates</h2>
-          <button
-            onClick={() => setShowCandidateForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Add New Candidate
-          </button>
-        </div>
-
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
-            <div className="flex items-center">
-              <UserCheck className="w-8 h-8 text-blue-500 mr-3" />
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{candidates.length}</p>
-                <p className="text-sm text-gray-600">Total Candidates</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
-            <div className="flex items-center">
-              <User className="w-8 h-8 text-green-500 mr-3" />
-              <div>
-                <p className="text-2xl font-bold text-gray-800">
-                  {candidates.filter(c => c.gender === 'male').length}
-                </p>
-                <p className="text-sm text-gray-600">Male Candidates</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg shadow border-l-4 border-pink-500">
-            <div className="flex items-center">
-              <User className="w-8 h-8 text-pink-500 mr-3" />
-              <div>
-                <p className="text-2xl font-bold text-gray-800">
-                  {candidates.filter(c => c.gender === 'female').length}
-                </p>
-                <p className="text-sm text-gray-600">Female Candidates</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
-            <div className="flex items-center">
-              <Users className="w-8 h-8 text-purple-500 mr-3" />
-              <div>
-                <p className="text-2xl font-bold text-gray-800">
-                  {candidates.filter(c => c.gender === 'other').length}
-                </p>
-                <p className="text-sm text-gray-600">Other</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {candidates.length === 0 ? (
-          <div className="bg-white p-8 rounded-lg shadow-md text-center">
-            <UserCheck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg mb-4">No candidates registered yet.</p>
-            <button
-              onClick={() => setShowCandidateForm(true)}
-              className="px-6 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
-            >
-              Register First Candidate
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {candidates.map((c) => (
-              <div
-                key={c._id || c.id}
-                className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => handleCandidateClick(c)}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-4 flex-1">
-                    <img
-                      src={c.photo || c.profilePic || "/default-profile.png"}
-                      alt={c.fullName || c.name}
-                      className="w-16 h-16 rounded-full object-cover border"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg text-gray-800">{c.fullName || c.name}</h3>
-                      <p className="text-blue-600 font-medium">{c.partyName || c.party}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setUpdatingCandidateId(c._id);
-                        handleEditCandidate(c);
-                      }}
-                      disabled={updatingCandidateId === c._id}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors disabled:opacity-50"
-                      title="Edit Candidate"
-                    >
-                      {updatingCandidateId === c._id ? (
-                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Edit2 className="w-4 h-4" />
-                      )}
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCandidate(c._id);
-                      }}
-                      disabled={deletingCandidateId === c._id}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
-                      title="Delete Candidate"
-                    >
-                      {deletingCandidateId === c._id ? (
-                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Position:</span> {c.position}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Party:</span> {c.partyName || c.party}
-                  </p>
-                  {c.politicalSign && (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-gray-600">Symbol:</span>
-                      <img
-                        src={c.politicalSign}
-                        alt="Political Symbol"
-                        className="w-8 h-8 object-cover rounded"
-                      />
-                    </div>
-                  )}
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {c.manifesto || c.bio}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </>
-    ) : (
-      // Candidate Detail View
-      <div className="bg-white p-6 rounded-lg shadow-md max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={handleBack}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back to Candidates</span>
-          </button>
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* Candidate Photo and Basic Info */}
-          <div className="flex flex-col items-center md:items-start space-y-4">
-            <img
-              src={selectedCandidate.photo || selectedCandidate.profilePic || "/default-profile.png"}
-              alt={selectedCandidate.fullName || selectedCandidate.name}
-              className="w-32 h-32 rounded-full object-cover border-4 border-blue-200"
-            />
-            <div className="text-center md:text-left">
-              <h3 className="text-2xl font-semibold text-gray-800">{selectedCandidate.fullName || selectedCandidate.name}</h3>
-              <p className="text-gray-600">{selectedCandidate.email}</p>
-              <p className="text-blue-600 font-medium text-lg mt-1">{selectedCandidate.partyName || selectedCandidate.party}</p>
-            </div>
-          </div>
-
-          {/* Candidate Details */}
-          <div className="flex-1 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Position</p>
-                <p className="text-lg font-semibold text-gray-800">{selectedCandidate.position}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Age</p>
-                <p className="text-lg font-semibold text-gray-800">{selectedCandidate.age} years</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Gender</p>
-                <p className="text-lg font-semibold text-gray-800 capitalize">{selectedCandidate.gender}</p>
-              </div>
-            </div>
-
-            {/* Political Symbol */}
-            {selectedCandidate.politicalSign && (
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium text-gray-500 mb-2">Political Symbol</p>
-                <div className="flex items-center gap-4">
-                  <img
-                    src={selectedCandidate.politicalSign}
-                    alt="Political Symbol"
-                    className="w-20 h-20 object-cover rounded-lg border"
-                  />
-                  <div>
-                    <p className="font-semibold text-gray-800">{selectedCandidate.partyName || selectedCandidate.party}</p>
-                    <p className="text-sm text-gray-600">Party Symbol</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Manifesto */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-medium text-gray-500 mb-2">Manifesto</p>
-              <p className="text-gray-700 leading-relaxed">{selectedCandidate.manifesto || selectedCandidate.bio}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
-)}
-          {/* Elections Section */}
-          {activeSection === "elections" && (
-            <div>
-              <h2 className="text-2xl font-semibold mb-4">Elections</h2>
-              {elections.length === 0 ? (
-                <p>No elections yet.</p>
-              ) : (
-                <ul className="bg-white p-4 rounded shadow space-y-2">
-                  {elections.map((e) => (
-                    <li
-                      key={e._id || e.id}
-                      className="border p-3 rounded flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50"
-                    >
-                      <div>
-                        <p className="font-semibold text-blue-900">{e.title}</p>
-                        <p className="text-sm text-gray-600">
-                          Start: {new Date(e.startDate).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          End: {new Date(e.endDate).toLocaleDateString()}
-                        </p>
-                      </div>
-
-                      {editingId === e._id ? (
-                        <div className="flex flex-col md:flex-row gap-2 mt-2 md:mt-0">
-                          <input
-                            type="date"
-                            value={editedDates.startDate}
-                            onChange={(ev) => handleEditedDatesChange('startDate', ev.target.value)}
-                            min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
-                            className="border p-1 rounded text-sm"
-                          />
-                          <input
-                            type="date"
-                            value={calculateEndDate(editedDates.startDate)}
-                            className="border p-1 rounded text-sm bg-gray-100"
-                            disabled
-                          />
-                          <button
-                            onClick={() => handleUpdateElection(e._id)}
-                            className="bg-green-700 hover:bg-green-800 text-white px-3 py-1 rounded"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="bg-gray-500 hover:bg-gray-600 py-1 px-2 rounded"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2 mt-2 md:mt-0">
-                          <button
-                            onClick={() => {
-                              setEditingId(e._id);
-                              setEditedDates({
-                                startDate: e.startDate.split('T')[0],
-                                endDate: e.endDate.split('T')[0],
-                              });
-                            }}
-                            className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1 rounded"
-                          >
-                            Manage
-                          </button>
-                          <button
-                            onClick={() => handleDeleteElection(e._id)}
-                            className="bg-[#ff5154]  hover:bg-[#fc161a] text-white px-3 py-1 rounded "
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+          {renderActiveSection()}
         </main>
       </div>
 
