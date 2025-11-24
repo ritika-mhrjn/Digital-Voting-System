@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Camera, Video, X, Edit2, Trash2, Save, LogOut } from "lucide-react";
 import { getPosts, createPost, updatePost, deletePost } from "../api/endpoints";
 import { useAuth } from "../contexts/AuthContext";
-
+//Notification
 const Notification = ({ message, type = "success", onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
