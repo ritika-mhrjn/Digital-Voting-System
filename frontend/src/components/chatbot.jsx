@@ -165,6 +165,12 @@ const qa = new Map([
     }
   },[messages, open]);
 
+  // Create a lowercase lookup map so user input (lowercased) matches keys reliably
+  const qaLower = new Map();
+  for (const [k, v] of qa.entries()) {
+    qaLower.set(k.toLowerCase(), v);
+  }
+
   function showWelcome(){
     if(!openedOnce.current){
       setMessages(prev => [...prev, {who:'bot', text: "Namaste! I am your voting assistant. You can ask how to register, what documents you need, when the election is, or about voting security."}]);
@@ -182,31 +188,31 @@ const qa = new Map([
 
   function replyTo(raw){
     const key = raw.trim().toLowerCase();
-    // exact match
-    if(qa.has(key)){
-      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qa.get(key)}]), 300);
+    // exact match against lowercased map
+    if (qaLower.has(key)) {
+      setTimeout(() => setMessages(prev => [...prev, { who: 'bot', text: qaLower.get(key) }]), 300);
       return;
     }
 
     // keyword checks
     if(key.includes('register')){
-      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qa.get('how do i register to vote')}]), 300);
+      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qaLower.get('how do i register to vote?')}]), 300);
       return;
     }
     if(key.includes('document') || key.includes('id') || key.includes('paper')){
-      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qa.get('what documents do i need')}]), 300);
+      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qaLower.get('what documents do i need')}]), 300);
       return;
     }
     if(key.includes('when') && key.includes('election')){
-      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qa.get('when is the election?')}]), 300);
+      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qaLower.get('when is the election?')}]), 300);
       return;
     }
     if(key.includes('online') && key.includes('vote')){
-      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qa.get('how does online voting work?')}]), 300);
+      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qaLower.get('how do i vote?')}]), 300);
       return;
     }
     if(key.includes('secure') || key.includes('safety')){
-      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qa.get('is my vote secure?')}]), 300);
+      setTimeout(()=> setMessages(prev => [...prev, {who:'bot', text: qaLower.get('is digital voting secure?')}]), 300);
       return;
     }
 

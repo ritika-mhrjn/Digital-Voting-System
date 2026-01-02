@@ -983,68 +983,42 @@ const VoteNowPage = () => {
     checkVoteStatus();
   }, [user]);
 
-  // Fetch elections and candidates
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setCandidatesLoading(true);
-        setFetchError(null);
-        
-        console.log("Fetching elections and candidates...");
-        
-        const electionsData = await getElections();
-        console.log("Elections response:", electionsData);
+ // Fetch elections and candidates
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setCandidatesLoading(true);
+      setFetchError(null);
 
-        // Handle different response structures
-        const electionsArray = electionsData.results || electionsData.data || electionsData || [];
-        setElections(Array.isArray(electionsArray) ? electionsArray : []);
+      // 1) Fetch elections (to know active election for voting rules)
+      const electionsData = await getElections();
+      const electionsArray = electionsData.results || electionsData.data || electionsData || [];
+      setElections(Array.isArray(electionsArray) ? electionsArray : []);
 
-        // Find active election (ongoing status)
-        const activeElection = electionsArray.find(election => 
-          election.status === 'ongoing' || 
-          election.isActive === true ||
-          (new Date(election.startDate) <= new Date() && new Date(election.endDate) >= new Date())
-        );
-        
-        if (activeElection) {
-          setActiveElection(activeElection);
-          console.log("Active election found:", activeElection);
+      const foundActiveElection = electionsArray.find(election => 
+        election.status === 'ongoing' || 
+        election.isActive === true ||
+        (new Date(election.startDate) <= new Date() && new Date(election.endDate) >= new Date())
+      );
+      setActiveElection(foundActiveElection || null);
 
-          // Get candidates for this specific election
-          // The candidates are already included in the election data from your controller
-          if (activeElection.candidates && activeElection.candidates.length > 0) {
-            console.log("Candidates from election data:", activeElection.candidates);
-            setCandidates(activeElection.candidates);
-          } else {
-            // If candidates aren't included, fetch them separately
-            console.log("No candidates in election data, fetching separately...");
-            const candidatesData = await getCandidates();
-            const candidatesArray = candidatesData.results || candidatesData.data || candidatesData || [];
-            
-            // Filter candidates for this election (if candidate has election field)
-            const electionCandidates = candidatesArray.filter(candidate => 
-              candidate.election && candidate.election.toString() === activeElection._id.toString()
-            );
-            setCandidates(electionCandidates);
-            console.log("Filtered candidates for election:", electionCandidates);
-          }
-        } else {
-          console.log("No active election found");
-          setCandidates([]);
-        }
+      // 2) Fetch ALL candidates (don’t filter by election)
+      const candidatesData = await getCandidates();
+      const candidatesArray = candidatesData.results || candidatesData.data || candidatesData || [];
 
-      } catch (err) {
-        console.error("Failed to fetch data:", err);
-        setFetchError("Failed to load election data. Please try again later.");
-        setCandidates([]);
-        setElections([]);
-      } finally {
-        setCandidatesLoading(false);
-      }
-    };
-    
-    fetchData();
-  }, []);
+      setCandidates(Array.isArray(candidatesArray) ? candidatesArray : []);
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+      setFetchError("Failed to load election data. Please try again later.");
+      setCandidates([]);
+      setElections([]);
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
 
   const handleViewDetails = (candidate) => {
     setSelectedCandidateDetail(candidate);
